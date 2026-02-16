@@ -12,6 +12,7 @@ export interface Session {
   label: string;
   startTime?: number; // timestamp
   endTime?: number; // timestamp
+  seedId?: string;
 }
 
 export interface PomodoroSchedule {
@@ -34,6 +35,7 @@ export interface CompletedSession {
   startTime: number;
   endTime: number;
   durationMinutes: number;
+  seedId?: string;
 }
 
 export interface Seed {
@@ -41,4 +43,6 @@ export interface Seed {
   text: string;
   completed: boolean;
   createdAt: number;
+  priority: 'sun' | 'partial' | 'shade'; // sun = high, partial = medium, shade = low
+  status: 'active' | 'backlog'; // active = potting bench, backlog = packet
 }

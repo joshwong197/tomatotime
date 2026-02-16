@@ -51,7 +51,16 @@ const App: React.FC = () => {
   // Checklist State
   const [seeds, setSeeds] = useState<Seed[]>(() => {
     const saved = localStorage.getItem('tomato_seeds');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migration for old seeds
+      return parsed.map((s: any) => ({
+        ...s,
+        priority: s.priority || 'partial',
+        status: s.status || 'backlog'
+      }));
+    }
+    return [];
   });
 
   // Analytics State
@@ -132,18 +141,34 @@ const App: React.FC = () => {
   }, [ambience]);
 
   // --- Checklist Handlers ---
-  const handleAddSeed = (texts: string[]) => {
+  const handleAddSeed = (texts: string[], priority: 'sun' | 'partial' | 'shade' = 'partial') => {
     const newSeeds: Seed[] = texts.map(text => ({
       id: Math.random().toString(36).substr(2, 9),
       text,
       completed: false,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      priority,
+      status: 'backlog' // Default to backlog
     }));
     setSeeds(prev => [...newSeeds, ...prev]);
   };
 
-  const handleEditSeed = (id: string, newText: string) => {
-    setSeeds(prev => prev.map(s => s.id === id ? { ...s, text: newText } : s));
+  const handleEditSeed = (id: string, newText: string, priority?: 'sun' | 'partial' | 'shade') => {
+    setSeeds(prev => prev.map(s => s.id === id ? { ...s, text: newText, priority: priority || s.priority } : s));
+  };
+
+  const handleMoveSeed = (id: string, status: 'active' | 'backlog') => {
+    setSeeds(prev => {
+      // Enforce max 3 limit for active bench
+      if (status === 'active') {
+        const activeCount = prev.filter(s => s.status === 'active' && !s.completed).length;
+        if (activeCount >= 3) {
+          alert("Your Potting Bench is full! Harvest (complete) or move a plant back to the packet first.");
+          return prev;
+        }
+      }
+      return prev.map(s => s.id === id ? { ...s, status } : s);
+    });
   };
 
   const handleToggleSeed = (id: string) => {
@@ -183,7 +208,7 @@ const App: React.FC = () => {
           body,
           icon: 'https://cdn-icons-png.flaticon.com/512/1202/1202125.png',
           tag: tag,
-          requireInteraction: true 
+          requireInteraction: true
         });
         notification.onclick = () => {
           window.focus();
@@ -207,27 +232,27 @@ const App: React.FC = () => {
             width: 350,
             height: 400,
           });
-          
+
           // Copy styles to PiP window
           [...document.styleSheets].forEach((styleSheet) => {
             try {
               if (styleSheet.href) {
-                 const link = document.createElement('link');
-                 link.rel = 'stylesheet';
-                 link.type = styleSheet.type;
-                 link.href = styleSheet.href;
-                 pip.document.head.appendChild(link);
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.type = styleSheet.type;
+                link.href = styleSheet.href;
+                pip.document.head.appendChild(link);
               } else {
-                 const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
-                 const style = document.createElement('style');
-                 style.textContent = cssRules;
-                 pip.document.head.appendChild(style);
+                const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
+                const style = document.createElement('style');
+                style.textContent = cssRules;
+                pip.document.head.appendChild(style);
               }
             } catch (e) {
-               console.warn("Could not copy stylesheet", e);
+              console.warn("Could not copy stylesheet", e);
             }
           });
-          
+
           // Add Tailwind CDN if local styles fail
           const script = document.createElement('script');
           script.src = "https://cdn.tailwindcss.com";
@@ -238,7 +263,7 @@ const App: React.FC = () => {
           fontLink.href = "https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap";
           fontLink.rel = "stylesheet";
           pip.document.head.appendChild(fontLink);
-          
+
           // Body Style
           pip.document.body.style.fontFamily = "'Fredoka', sans-serif";
           pip.document.body.style.backgroundColor = "#fffbeb";
@@ -247,7 +272,7 @@ const App: React.FC = () => {
           pip.document.body.style.alignItems = "center";
 
           setPipWindow(pip);
-          
+
           pip.addEventListener('pagehide', () => {
             setPipWindow(null);
           });
@@ -276,28 +301,28 @@ const App: React.FC = () => {
     let count = 0;
 
     while (remaining > 0) {
-        count++;
-        // Focus
-        const focusDur = Math.min(25, remaining);
-        newSessions.push({
-            id: Math.random().toString(36).substr(2, 9),
-            type: SessionType.FOCUS,
-            durationMinutes: focusDur,
-            label: `Focus Session ${count}`
-        });
-        remaining -= focusDur;
-        if (remaining <= 0) break;
+      count++;
+      // Focus
+      const focusDur = Math.min(25, remaining);
+      newSessions.push({
+        id: Math.random().toString(36).substr(2, 9),
+        type: SessionType.FOCUS,
+        durationMinutes: focusDur,
+        label: `Focus Session ${count}`
+      });
+      remaining -= focusDur;
+      if (remaining <= 0) break;
 
-        // Break
-        const isLong = count % 4 === 0;
-        const breakDur = Math.min(isLong ? 15 : 5, remaining);
-        newSessions.push({
-            id: Math.random().toString(36).substr(2, 9),
-            type: isLong ? SessionType.LONG_BREAK : SessionType.SHORT_BREAK,
-            durationMinutes: breakDur,
-            label: isLong ? 'Long Break' : 'Short Break'
-        });
-        remaining -= breakDur;
+      // Break
+      const isLong = count % 4 === 0;
+      const breakDur = Math.min(isLong ? 15 : 5, remaining);
+      newSessions.push({
+        id: Math.random().toString(36).substr(2, 9),
+        type: isLong ? SessionType.LONG_BREAK : SessionType.SHORT_BREAK,
+        durationMinutes: breakDur,
+        label: isLong ? 'Long Break' : 'Short Break'
+      });
+      remaining -= breakDur;
     }
 
     const newSchedule: PomodoroSchedule = {
@@ -328,7 +353,7 @@ const App: React.FC = () => {
     setTargetEndTime(null);
     audioService.stopAmbience(); // Pause ambience when timer pauses
   };
-  
+
   const handleCompleteEarly = () => {
     setIsRunning(false);
     setTargetEndTime(null);
@@ -341,10 +366,10 @@ const App: React.FC = () => {
     if (currentSessionObj) {
       const isFocus = currentSessionObj.type === SessionType.FOCUS;
       const title = isFocus ? '🍅 Harvest Time!' : '🥗 Break Over!';
-      const body = isFocus 
+      const body = isFocus
         ? `Great job! Your ${currentSessionObj.label} session is complete.`
         : 'Time to get back to the garden objective!';
-      
+
       sendBrowserNotification(title, body);
       audioService.playChime();
       audioService.stopAmbience(); // Stop ambience on completion
@@ -352,10 +377,11 @@ const App: React.FC = () => {
     setShowNotification(true);
   };
 
-  const handleUpdateLabel = (newLabel?: string) => {
+  const handleUpdateLabel = (newLabel?: string, seedId?: string) => {
     if (!schedule) return;
     const newSessions = [...schedule.sessions];
     newSessions[currentSessionIndex].label = newLabel || editingLabelText || 'Untitled Growth';
+    if (seedId) newSessions[currentSessionIndex].seedId = seedId;
     setSchedule({ ...schedule, sessions: newSessions });
     setIsEditingLabel(false);
   };
@@ -363,15 +389,22 @@ const App: React.FC = () => {
   // Drag and Drop Handler
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const data = e.dataTransfer.getData("text/plain");
-    if (data && schedule) {
-        handleUpdateLabel(data);
+    const seedId = e.dataTransfer.getData("application/tomato-seed");
+    const textData = e.dataTransfer.getData("text/plain");
+
+    if (seedId) {
+      const seed = seeds.find(s => s.id === seedId);
+      if (seed && schedule) {
+        handleUpdateLabel(seed.text, seed.id);
+      }
+    } else if (textData && schedule) {
+      handleUpdateLabel(textData);
     }
   };
 
   const nextSession = useCallback(() => {
     if (!schedule) return;
-    
+
     const currentSessionObj = schedule.sessions[currentSessionIndex];
     const endTime = Date.now();
     const startTime = sessionStartTime || (endTime - (currentSessionObj.durationMinutes * 60 * 1000));
@@ -450,23 +483,23 @@ const App: React.FC = () => {
       {/* Permission Modal */}
       {notificationPermission === 'default' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-yellow-50/90 backdrop-blur-xl animate-in zoom-in-95 duration-500">
-           <div className="tomato-card p-12 max-w-lg w-full text-center space-y-8 shadow-2xl border-yellow-400">
-              <div className="text-8xl floating">🍅</div>
-              <div className="space-y-4">
-                 <h2 className="text-4xl font-black text-stone-800 tracking-tight leading-tight">Enable Garden Alerts?</h2>
-                 <p className="text-stone-500 font-medium text-lg leading-relaxed">
-                    To notify you when focus ends (even if you're in another tab), Tomato Time needs your browser's permission to sprout pop-up alerts.
-                 </p>
-              </div>
-              <div className="flex flex-col gap-4">
-                 <button onClick={requestNotificationPermission} className="tomato-button py-6 text-xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all">
-                    <span>🔔</span> Enable Alerts
-                 </button>
-                 <button onClick={() => setNotificationPermission('denied')} className="text-stone-400 font-bold text-sm hover:text-stone-600 transition-colors">
-                    Continue without Alerts
-                 </button>
-              </div>
-           </div>
+          <div className="tomato-card p-12 max-w-lg w-full text-center space-y-8 shadow-2xl border-yellow-400">
+            <div className="text-8xl floating">🍅</div>
+            <div className="space-y-4">
+              <h2 className="text-4xl font-black text-stone-800 tracking-tight leading-tight">Enable Garden Alerts?</h2>
+              <p className="text-stone-500 font-medium text-lg leading-relaxed">
+                To notify you when focus ends (even if you're in another tab), Tomato Time needs your browser's permission to sprout pop-up alerts.
+              </p>
+            </div>
+            <div className="flex flex-col gap-4">
+              <button onClick={requestNotificationPermission} className="tomato-button py-6 text-xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all">
+                <span>🔔</span> Enable Alerts
+              </button>
+              <button onClick={() => setNotificationPermission('denied')} className="text-stone-400 font-bold text-sm hover:text-stone-600 transition-colors">
+                Continue without Alerts
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -481,289 +514,291 @@ const App: React.FC = () => {
         </div>
         <div className="flex gap-4 items-center">
           <div className="flex items-center bg-white p-1 rounded-full border-2 border-stone-100 shadow-sm">
-             <button onClick={requestNotificationPermission} className={`p-2 rounded-full transition-all ${notificationPermission === 'granted' ? 'text-green-500 bg-green-50' : 'text-stone-300 hover:text-yellow-500'}`} title="Toggle Notifications">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-             </button>
-             <button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-stone-300 hover:text-red-500 transition-all" title="Garden Journal">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </button>
+            <button onClick={requestNotificationPermission} className={`p-2 rounded-full transition-all ${notificationPermission === 'granted' ? 'text-green-500 bg-green-50' : 'text-stone-300 hover:text-yellow-500'}`} title="Toggle Notifications">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </button>
+            <button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-stone-300 hover:text-red-500 transition-all" title="Garden Journal">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </button>
           </div>
           <div className="hidden sm:flex bg-white px-6 py-3 rounded-full border-2 border-stone-100 items-center gap-3 shadow-sm">
-             <div className="text-2xl">🔥</div>
-             <div>
-                <p className="text-xl font-black leading-none">{dailyStats.completedSessions}</p>
-                <p className="text-[10px] font-bold text-stone-400 uppercase">Harvested</p>
-             </div>
+            <div className="text-2xl">🔥</div>
+            <div>
+              <p className="text-xl font-black leading-none">{dailyStats.completedSessions}</p>
+              <p className="text-[10px] font-bold text-stone-400 uppercase">Harvested</p>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Layout */}
       <div className="flex flex-col lg:flex-row gap-8 items-start">
-        
+
         {/* Left Column: Active App or Setup */}
         <main className="flex-1 w-full flex flex-col items-center">
-           {!schedule ? (
-             <div className="w-full max-w-2xl flex flex-col items-center justify-center space-y-10 py-10 animate-in zoom-in-95 duration-500">
-               <div className="text-center space-y-4">
-                 <h2 className="text-4xl md:text-5xl font-black text-stone-800 leading-tight">Time to Grow?</h2>
-                 <p className="text-stone-500 text-lg font-medium">Set your total focus time. We'll handle the breaks.</p>
-               </div>
+          {!schedule ? (
+            <div className="w-full max-w-2xl flex flex-col items-center justify-center space-y-10 py-10 animate-in zoom-in-95 duration-500">
+              <div className="text-center space-y-4">
+                <h2 className="text-4xl md:text-5xl font-black text-stone-800 leading-tight">Time to Grow?</h2>
+                <p className="text-stone-500 text-lg font-medium">Set your total focus time. We'll handle the breaks.</p>
+              </div>
 
-               {/* Time Dial UI */}
-               <div className="flex items-center gap-4 md:gap-8 p-8 bg-white rounded-[3rem] shadow-xl border-4 border-red-50">
-                 <div className="flex flex-col items-center gap-2">
-                    <button onClick={incrementHours} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                    </button>
-                    <div className="w-24 h-24 md:w-32 md:h-32 bg-stone-50 rounded-2xl flex items-center justify-center border-4 border-stone-100">
-                      <span className="text-5xl md:text-6xl font-black text-stone-800">{inputHours}</span>
-                    </div>
-                    <button onClick={decrementHours} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
-                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                    </button>
-                    <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Hours</span>
-                 </div>
-                 
-                 <div className="text-4xl font-black text-stone-200 -mt-8">:</div>
-
-                 <div className="flex flex-col items-center gap-2">
-                    <button onClick={incrementMinutes} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                    </button>
-                    <div className="w-24 h-24 md:w-32 md:h-32 bg-stone-50 rounded-2xl flex items-center justify-center border-4 border-stone-100">
-                      <span className="text-5xl md:text-6xl font-black text-stone-800">{inputMinutes.toString().padStart(2, '0')}</span>
-                    </div>
-                    <button onClick={decrementMinutes} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
-                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                    </button>
-                    <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Mins</span>
-                 </div>
-               </div>
-
-               <button 
-                  onClick={handleStartGarden}
-                  className="tomato-button px-12 py-5 text-2xl font-black tracking-widest uppercase hover:scale-105 active:scale-95 transition-all shadow-xl shadow-red-200"
-               >
-                  Plant Garden
-               </button>
-             </div>
-           ) : (
-             <div className="w-full flex flex-col items-center justify-center bg-white rounded-[3rem] p-8 shadow-sm border-2 border-stone-50 relative animate-in fade-in slide-in-from-bottom-5 duration-500">
-                {/* Session Label Editor & Drop Zone */}
-                <div 
-                  className="absolute top-10 left-10 right-10 flex flex-col items-center gap-1 group"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleDrop}
-                >
-                   {isEditingLabel ? (
-                     <div className="flex items-center gap-2 animate-in slide-in-from-top-2">
-                        <input 
-                          autoFocus
-                          className="bg-stone-50 border-2 border-red-100 rounded-xl px-4 py-2 text-center font-black text-red-600 outline-none focus:border-red-400"
-                          value={editingLabelText}
-                          onChange={(e) => setEditingLabelText(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateLabel()}
-                          onBlur={() => handleUpdateLabel()}
-                        />
-                        <button onClick={() => handleUpdateLabel()} className="bg-green-500 text-white p-2 rounded-xl">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                        </button>
-                     </div>
-                   ) : (
-                     <div 
-                       onClick={() => { setEditingLabelText(currentSession?.label || ''); setIsEditingLabel(true); }}
-                       className="cursor-pointer group flex flex-col items-center p-4 rounded-2xl transition-all border-2 border-transparent hover:bg-stone-50 hover:border-stone-100 border-dashed hover:border-red-200"
-                       title="Click to edit or drop a task here"
-                     >
-                        <p className="text-stone-300 font-black uppercase text-[10px] tracking-[0.3em] group-hover:text-red-300 transition-colors">Objective</p>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-2xl font-black text-stone-800 tracking-tight">{currentSession?.label}</h2>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-stone-200 group-hover:text-stone-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                        </div>
-                     </div>
-                   )}
+              {/* Time Dial UI */}
+              <div className="flex items-center gap-4 md:gap-8 p-8 bg-white rounded-[3rem] shadow-xl border-4 border-red-50">
+                <div className="flex flex-col items-center gap-2">
+                  <button onClick={incrementHours} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                  </button>
+                  <div className="w-24 h-24 md:w-32 md:h-32 bg-stone-50 rounded-2xl flex items-center justify-center border-4 border-stone-100">
+                    <span className="text-5xl md:text-6xl font-black text-stone-800">{inputHours}</span>
+                  </div>
+                  <button onClick={decrementHours} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                  </button>
+                  <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Hours</span>
                 </div>
 
-                {/* Main Content: Render in PiP or Normal */}
-                {pipWindow && (
-                  createPortal(
-                    <div className="h-full w-full flex flex-col items-center justify-center p-4">
-                      <TimerDisplay
-                        seconds={timeLeft}
-                        totalSeconds={currentSession?.durationMinutes ? currentSession.durationMinutes * 60 : 1}
-                        label={currentSession?.type || 'SESSION'}
-                        isFocus={currentSession?.type === SessionType.FOCUS}
-                      />
-                      <button 
-                        onClick={togglePiP} 
-                        className="mt-4 text-xs font-bold text-red-400 uppercase tracking-widest hover:text-red-600"
-                      >
-                        Restore Window
-                      </button>
-                    </div>,
-                    pipWindow.document.body
-                  )
-                )}
+                <div className="text-4xl font-black text-stone-200 -mt-8">:</div>
 
-                {/* Only show timer here if PiP is NOT active */}
-                {!pipWindow && (
-                  <TimerDisplay
-                    seconds={timeLeft}
-                    totalSeconds={currentSession?.durationMinutes ? currentSession.durationMinutes * 60 : 1}
-                    label={currentSession?.type || 'SESSION'}
-                    isFocus={currentSession?.type === SessionType.FOCUS}
-                  />
-                )}
-
-                <div className="flex flex-col items-center gap-6 mt-4">
-                  
-                  {/* Ambience Controls */}
-                  <div className="flex items-center gap-2 bg-stone-50 p-1 rounded-full border border-stone-200">
-                     <button 
-                        onClick={() => setAmbience('off')}
-                        className={`p-2 rounded-full transition-all ${ambience === 'off' ? 'bg-white shadow text-stone-600' : 'text-stone-400 hover:text-stone-600'}`}
-                        title="Silence"
-                     >
-                       🔇
-                     </button>
-                     <button 
-                        onClick={() => setAmbience('rain')}
-                        className={`p-2 rounded-full transition-all ${ambience === 'rain' ? 'bg-blue-100 shadow text-blue-600' : 'text-stone-400 hover:text-blue-500'}`}
-                        title="Rain Ambience"
-                     >
-                       🌧️
-                     </button>
-                     <button 
-                        onClick={() => setAmbience('wind')}
-                        className={`p-2 rounded-full transition-all ${ambience === 'wind' ? 'bg-green-100 shadow text-green-600' : 'text-stone-400 hover:text-green-500'}`}
-                        title="Garden Breeze"
-                     >
-                       🍃
-                     </button>
+                <div className="flex flex-col items-center gap-2">
+                  <button onClick={incrementMinutes} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                  </button>
+                  <div className="w-24 h-24 md:w-32 md:h-32 bg-stone-50 rounded-2xl flex items-center justify-center border-4 border-stone-100">
+                    <span className="text-5xl md:text-6xl font-black text-stone-800">{inputMinutes.toString().padStart(2, '0')}</span>
                   </div>
+                  <button onClick={decrementMinutes} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                  </button>
+                  <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Mins</span>
+                </div>
+              </div>
 
-                  <div className="flex items-center gap-8">
-                    {!isRunning ? (
-                      <button onClick={handleStartTimer} className="tomato-button h-24 w-24 flex items-center justify-center hover:scale-110 shadow-[0_6px_0_0_#b91c1c] active:translate-y-1 active:shadow-none transition-all">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 fill-current translate-x-1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                      </button>
-                    ) : (
-                      <button onClick={handlePauseTimer} className="tomato-button-secondary h-24 w-24 flex items-center justify-center hover:scale-110 shadow-[0_6px_0_0_#15803d] active:translate-y-1 active:shadow-none transition-all">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-                      </button>
-                    )}
-
-                    <div className="flex flex-col gap-2">
-                       <button onClick={handleCompleteEarly} className="bg-yellow-400 text-white h-12 w-12 rounded-full flex items-center justify-center hover:scale-110 shadow-[0_3px_0_0_#ca8a04] active:translate-y-1 active:shadow-none transition-all" title="Finish session early">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                       </button>
-                       {/* PiP Button */}
-                       <button 
-                          onClick={togglePiP} 
-                          className={`bg-stone-200 text-stone-500 h-12 w-12 rounded-full flex items-center justify-center hover:scale-110 shadow-[0_3px_0_0_#d6d3d1] active:translate-y-1 active:shadow-none transition-all ${pipWindow ? 'ring-2 ring-red-400' : ''}`}
-                          title="Pop Out Window"
-                       >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                       </button>
+              <button
+                onClick={handleStartGarden}
+                className="tomato-button px-12 py-5 text-2xl font-black tracking-widest uppercase hover:scale-105 active:scale-95 transition-all shadow-xl shadow-red-200"
+              >
+                Plant Garden
+              </button>
+            </div>
+          ) : (
+            <div className="w-full flex flex-col items-center justify-center bg-white rounded-[3rem] p-8 shadow-sm border-2 border-stone-50 relative animate-in fade-in slide-in-from-bottom-5 duration-500">
+              {/* Session Label Editor & Drop Zone */}
+              <div
+                className="absolute top-10 left-10 right-10 flex flex-col items-center gap-1 group"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                {isEditingLabel ? (
+                  <div className="flex items-center gap-2 animate-in slide-in-from-top-2">
+                    <input
+                      autoFocus
+                      className="bg-stone-50 border-2 border-red-100 rounded-xl px-4 py-2 text-center font-black text-red-600 outline-none focus:border-red-400"
+                      value={editingLabelText}
+                      onChange={(e) => setEditingLabelText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleUpdateLabel()}
+                      onBlur={() => handleUpdateLabel()}
+                    />
+                    <button onClick={() => handleUpdateLabel()} className="bg-green-500 text-white p-2 rounded-xl">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => { setEditingLabelText(currentSession?.label || ''); setIsEditingLabel(true); }}
+                    className="cursor-pointer group flex flex-col items-center p-4 rounded-2xl transition-all border-2 border-transparent hover:bg-stone-50 hover:border-stone-100 border-dashed hover:border-red-200"
+                    title="Click to edit or drop a task here"
+                  >
+                    <p className="text-stone-300 font-black uppercase text-[10px] tracking-[0.3em] group-hover:text-red-300 transition-colors">Objective</p>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-2xl font-black text-stone-800 tracking-tight">{currentSession?.label}</h2>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-stone-200 group-hover:text-stone-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </div>
                   </div>
-                  
-                  <button 
-                    onClick={() => {
-                      setSchedule(null);
-                      setIsRunning(false);
-                      setTargetEndTime(null);
-                      localStorage.removeItem('tomato_active_schedule');
-                    }} 
-                    className="text-stone-300 font-bold hover:text-red-400 transition-colors uppercase text-[10px] tracking-[0.3em]"
+                )}
+              </div>
+
+              {/* Main Content: Render in PiP or Normal */}
+              {pipWindow && (
+                createPortal(
+                  <div className="h-full w-full flex flex-col items-center justify-center p-4">
+                    <TimerDisplay
+                      seconds={timeLeft}
+                      totalSeconds={currentSession?.durationMinutes ? currentSession.durationMinutes * 60 : 1}
+                      label={currentSession?.type || 'SESSION'}
+                      isFocus={currentSession?.type === SessionType.FOCUS}
+                    />
+                    <button
+                      onClick={togglePiP}
+                      className="mt-4 text-xs font-bold text-red-400 uppercase tracking-widest hover:text-red-600"
+                    >
+                      Restore Window
+                    </button>
+                  </div>,
+                  pipWindow.document.body
+                )
+              )}
+
+              {/* Only show timer here if PiP is NOT active */}
+              {!pipWindow && (
+                <TimerDisplay
+                  seconds={timeLeft}
+                  totalSeconds={currentSession?.durationMinutes ? currentSession.durationMinutes * 60 : 1}
+                  label={currentSession?.type || 'SESSION'}
+                  isFocus={currentSession?.type === SessionType.FOCUS}
+                />
+              )}
+
+              <div className="flex flex-col items-center gap-6 mt-4">
+
+                {/* Ambience Controls */}
+                <div className="flex items-center gap-2 bg-stone-50 p-1 rounded-full border border-stone-200">
+                  <button
+                    onClick={() => setAmbience('off')}
+                    className={`p-2 rounded-full transition-all ${ambience === 'off' ? 'bg-white shadow text-stone-600' : 'text-stone-400 hover:text-stone-600'}`}
+                    title="Silence"
                   >
-                    Reset Garden
+                    🔇
+                  </button>
+                  <button
+                    onClick={() => setAmbience('rain')}
+                    className={`p-2 rounded-full transition-all ${ambience === 'rain' ? 'bg-blue-100 shadow text-blue-600' : 'text-stone-400 hover:text-blue-500'}`}
+                    title="Rain Ambience"
+                  >
+                    🌧️
+                  </button>
+                  <button
+                    onClick={() => setAmbience('wind')}
+                    className={`p-2 rounded-full transition-all ${ambience === 'wind' ? 'bg-green-100 shadow text-green-600' : 'text-stone-400 hover:text-green-500'}`}
+                    title="Garden Breeze"
+                  >
+                    🍃
                   </button>
                 </div>
-             </div>
-           )}
+
+                <div className="flex items-center gap-8">
+                  {!isRunning ? (
+                    <button onClick={handleStartTimer} className="tomato-button h-24 w-24 flex items-center justify-center hover:scale-110 shadow-[0_6px_0_0_#b91c1c] active:translate-y-1 active:shadow-none transition-all">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 fill-current translate-x-1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                    </button>
+                  ) : (
+                    <button onClick={handlePauseTimer} className="tomato-button-secondary h-24 w-24 flex items-center justify-center hover:scale-110 shadow-[0_6px_0_0_#15803d] active:translate-y-1 active:shadow-none transition-all">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                    </button>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <button onClick={handleCompleteEarly} className="bg-yellow-400 text-white h-12 w-12 rounded-full flex items-center justify-center hover:scale-110 shadow-[0_3px_0_0_#ca8a04] active:translate-y-1 active:shadow-none transition-all" title="Finish session early">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    </button>
+                    {/* PiP Button */}
+                    <button
+                      onClick={togglePiP}
+                      className={`bg-stone-200 text-stone-500 h-12 w-12 rounded-full flex items-center justify-center hover:scale-110 shadow-[0_3px_0_0_#d6d3d1] active:translate-y-1 active:shadow-none transition-all ${pipWindow ? 'ring-2 ring-red-400' : ''}`}
+                      title="Pop Out Window"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSchedule(null);
+                    setIsRunning(false);
+                    setTargetEndTime(null);
+                    localStorage.removeItem('tomato_active_schedule');
+                  }}
+                  className="text-stone-300 font-bold hover:text-red-400 transition-colors uppercase text-[10px] tracking-[0.3em]"
+                >
+                  Reset Garden
+                </button>
+              </div>
+            </div>
+          )}
         </main>
 
         {/* Right Column: Pervasive Sidebar (Checklist + Stats) */}
         <aside className="w-full lg:w-[380px] space-y-6 flex flex-col">
-            {/* Pervasive Checklist */}
-            <SeedChecklist 
-              seeds={seeds}
-              onAdd={handleAddSeed}
-              onEdit={handleEditSeed}
-              onToggle={handleToggleSeed}
-              onDelete={handleDeleteSeed}
-              onClear={handleClearSeeds}
-            />
+          {/* Pervasive Checklist */}
+          <SeedChecklist
+            seeds={seeds}
+            onAdd={handleAddSeed}
+            onEdit={handleEditSeed}
+            onToggle={handleToggleSeed}
+            onDelete={handleDeleteSeed}
+            onMove={handleMoveSeed}
+            onClear={handleClearSeeds}
+          />
 
-            {/* Conditional Stats/Basket - only show when active */}
-            {schedule && (
-              <div className="space-y-6 animate-in slide-in-from-right-5 duration-500">
-                <div className="tomato-card p-6 border-stone-50">
-                  <h3 className="text-lg font-black text-stone-800 mb-6 flex items-center gap-2">
-                     <span>🧺</span> Session Basket
-                  </h3>
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {schedule.sessions.map((session, idx) => (
-                      <div
-                        key={session.id}
-                        className={`p-4 rounded-3xl flex items-center justify-between transition-all duration-300 ${
-                          idx === currentSessionIndex 
-                          ? 'bg-yellow-50 border-2 border-yellow-200 scale-105 shadow-sm' 
-                          : idx < currentSessionIndex ? 'bg-stone-50 opacity-50 grayscale' : 'bg-white border border-stone-100 opacity-80'
+          {/* Conditional Stats/Basket - only show when active */}
+          {schedule && (
+            <div className="space-y-6 animate-in slide-in-from-right-5 duration-500">
+              <div className="tomato-card p-6 border-stone-50">
+                <h3 className="text-lg font-black text-stone-800 mb-6 flex items-center gap-2">
+                  <span>🧺</span> Session Basket
+                </h3>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {schedule.sessions.map((session, idx) => (
+                    <div
+                      key={session.id}
+                      className={`p-4 rounded-3xl flex items-center justify-between transition-all duration-300 ${idx === currentSessionIndex
+                        ? 'bg-yellow-50 border-2 border-yellow-200 scale-105 shadow-sm'
+                        : idx < currentSessionIndex ? 'bg-stone-50 opacity-50 grayscale' : 'bg-white border border-stone-100 opacity-80'
                         }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="text-2xl">{session.type === SessionType.FOCUS ? '🍅' : '🍃'}</div>
-                          <div>
-                            <h4 className={`font-bold text-sm ${idx === currentSessionIndex ? 'text-stone-800' : 'text-stone-500'}`}>
-                              {session.label}
-                            </h4>
-                            <p className="text-[10px] text-stone-400 font-bold uppercase">{session.durationMinutes} min</p>
-                          </div>
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="text-2xl">{session.type === SessionType.FOCUS ? '🍅' : '🍃'}</div>
+                        <div>
+                          <h4 className={`font-bold text-sm ${idx === currentSessionIndex ? 'text-stone-800' : 'text-stone-500'}`}>
+                            {session.label}
+                          </h4>
+                          <p className="text-[10px] text-stone-400 font-bold uppercase">{session.durationMinutes} min</p>
                         </div>
-                        {idx < currentSessionIndex && (
-                           <div className="text-green-500 text-lg">✅</div>
-                        )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="tomato-card p-6 bg-green-50/50 border-green-100 shadow-[0_10px_0_0_#dcfce7]">
-                   <h3 className="text-lg font-black text-green-800 mb-4 flex items-center gap-2">
-                      <span>📊</span> Today's Yield
-                   </h3>
-                   <div className="space-y-4">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-green-700">
-                         <span>Focus Progress:</span>
-                         <span>{dailyStats.focusMinutes} m</span>
-                      </div>
-                      <div className="h-3 bg-white/50 rounded-full border border-green-200 overflow-hidden">
-                         <div 
-                            className="h-full bg-green-500 transition-all duration-1000" 
-                            style={{ width: `${Math.min((dailyStats.focusMinutes / 120) * 100, 100)}%` }}
-                         ></div>
-                      </div>
-                   </div>
+                      {idx < currentSessionIndex && (
+                        <div className="text-green-500 text-lg">✅</div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            )}
+
+              <div className="tomato-card p-6 bg-green-50/50 border-green-100 shadow-[0_10px_0_0_#dcfce7]">
+                <h3 className="text-lg font-black text-green-800 mb-4 flex items-center gap-2">
+                  <span>📊</span> Today's Yield
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-green-700">
+                    <span>Focus Progress:</span>
+                    <span>{dailyStats.focusMinutes} m</span>
+                  </div>
+                  <div className="h-3 bg-white/50 rounded-full border border-green-200 overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 transition-all duration-1000"
+                      style={{ width: `${Math.min((dailyStats.focusMinutes / 120) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
       </div>
 
       {showNotification && currentSession && (
         <NotificationOverlay
           type={currentSession.type}
+          seedId={currentSession.seedId}
           onClose={() => setShowNotification(false)}
           onNext={nextSession}
+          onHarvest={currentSession.seedId ? () => handleToggleSeed(currentSession.seedId!) : undefined}
         />
       )}
 
@@ -772,9 +807,9 @@ const App: React.FC = () => {
       )}
 
       <footer className="mt-auto py-6 text-center">
-         <p className="text-xs font-bold text-stone-300 uppercase tracking-[0.2em]">
-            Cultivated with care &bull; Tomato Time v3.1
-         </p>
+        <p className="text-xs font-bold text-stone-300 uppercase tracking-[0.2em]">
+          Cultivated with care &bull; Tomato Time v3.1
+        </p>
       </footer>
     </div>
   );
