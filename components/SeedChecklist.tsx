@@ -173,27 +173,56 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
 
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="mb-4 flex flex-col gap-2 bg-stone-50 p-3 rounded-2xl border border-stone-100">
-          <div className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={newSeedText}
-              onChange={(e) => setNewSeedText(e.target.value)}
-              placeholder="New seed..."
-              className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors"
-            />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBatchMode(!isBatchMode)}
+              className={`p-2 rounded-xl border-2 transition-all ${isBatchMode ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-400 border-stone-200 hover:border-stone-300'}`}
+              title={isBatchMode ? "Switch to single item mode" : "Switch to batch mode (paste list)"}
+            >
+              {isBatchMode ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM9 15a1 1 0 011-1h6a1 1 0 110 2h-6a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+              )}
+            </button>
+
+            {isBatchMode ? (
+              <textarea
+                value={newSeedText}
+                onChange={(e) => setNewSeedText(e.target.value)}
+                placeholder="Paste multiple seeds here...&#10;One per line"
+                className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors min-h-[80px] resize-y"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleSubmit(e);
+                  }
+                }}
+              />
+            ) : (
+              <input
+                type="text"
+                value={newSeedText}
+                onChange={(e) => setNewSeedText(e.target.value)}
+                placeholder="New seed..."
+                className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors"
+              />
+            )}
+
             <button
               type="submit"
               disabled={!newSeedText.trim()}
-              className="bg-green-500 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-green-600 transition-colors shadow-sm active:translate-y-0.5 active:shadow-none"
+              className="bg-green-500 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-green-600 transition-colors shadow-sm active:translate-y-0.5 active:shadow-none h-fit self-start"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
               </svg>
             </button>
           </div>
+          {isBatchMode && <p className="text-[10px] text-stone-400 font-bold ml-12">Press Ctrl+Enter to add all</p>}
 
           {/* Priority Selectors */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 mt-1">
             {[
               { id: 'sun', icon: '☀️', label: 'Full Sun' },
               { id: 'partial', icon: '⛅', label: 'Partial' },
@@ -204,8 +233,8 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
                 type="button"
                 onClick={() => setNewSeedPriority(opt.id as any)}
                 className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all ${newSeedPriority === opt.id
-                    ? 'bg-white text-stone-800 shadow-sm border border-stone-200 ring-1 ring-stone-200'
-                    : 'text-stone-400 hover:bg-stone-100'
+                  ? 'bg-white text-stone-800 shadow-sm border border-stone-200 ring-1 ring-stone-200'
+                  : 'text-stone-400 hover:bg-stone-100'
                   }`}
               >
                 <span>{opt.icon}</span> <span>{opt.label}</span>
