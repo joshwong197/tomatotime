@@ -1,13 +1,56 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Session, SessionType, PomodoroSchedule, DailyStats, CompletedSession, Seed } from './types';
+import { Session, SessionType, PomodoroSchedule, DailyStats, CompletedSession, Seed, ArchivedSeed, PlantSprite } from './types';
 import { TimerDisplay } from './components/TimerDisplay';
 import { NotificationOverlay } from './components/NotificationOverlay';
 import { HistoryHub } from './components/HistoryHub';
 import { SeedChecklist } from './components/SeedChecklist';
 import { AboutModal } from './components/AboutModal';
+import { ArchivedSeedsModal } from './components/ArchivedSeedsModal';
 import { audioService } from './services/audioService';
+
+// Helper: hash a string id to an x/y percentage for deterministic plant placement
+function hashToPercent(id: string, salt: number): number {
+  let h = salt;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+  return 5 + (h % 90);
+}
+
+function generatePlantPosition(existingSprites: PlantSprite[], seedId: string): { x: number; y: number } {
+  // Try deterministic position first based on seed id
+  const x = hashToPercent(seedId, 7);
+  const y = hashToPercent(seedId, 13);
+  return { x, y };
+}
+
+const STAGE_EMOJIS = ['🌱', '🌿', '🪴', '🌳'];
+
+const PlantBackground: React.FC<{ sprites: PlantSprite[] }> = ({ sprites }) => (
+  <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+    {sprites.slice(-60).map((sprite, idx) => {
+      const stage = Math.min(3, Math.floor(idx / 5));
+      const emoji = STAGE_EMOJIS[stage];
+      const opacity = 0.12 + (stage * 0.07);
+      const size = 18 + stage * 6;
+      return (
+        <div
+          key={sprite.id}
+          className="absolute select-none"
+          style={{
+            left: `${sprite.x}%`,
+            top: `${sprite.y}%`,
+            fontSize: `${size}px`,
+            opacity,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          {emoji}
+        </div>
+      );
+    })}
+  </div>
+);
 
 const App: React.FC = () => {
   // Manual Timer Input State
@@ -59,10 +102,30 @@ const App: React.FC = () => {
       return parsed.map((s: any) => ({
         ...s,
         priority: s.priority || 'partial',
-        status: s.status || 'backlog'
+        status: s.status || 'backlog',
+        focusTime: s.focusTime || 0
       }));
     }
     return [];
+  });
+
+  // Archive State
+  const [archivedSeeds, setArchivedSeeds] = useState<ArchivedSeed[]>(() => {
+    const saved = localStorage.getItem('tomato_archived_seeds');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [showArchive, setShowArchive] = useState(false);
+
+  // Selected Task for Focus Time Tracking
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => {
+    return localStorage.getItem('tomato_selected_task') || null;
+  });
+
+  // Garden Plant Sprites (background visuals)
+  const [plantSprites, setPlantSprites] = useState<PlantSprite[]>(() => {
+    const saved = localStorage.getItem('tomato_plant_sprites');
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Analytics State
@@ -94,6 +157,7 @@ const App: React.FC = () => {
 
   const timerRef = useRef<any>(null);
   const pauseTimerRef = useRef<any>(null);
+  const taskTimerRef = useRef<any>(null);
 
   // Persistence Effects
   useEffect(() => {
@@ -107,6 +171,19 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('tomato_seeds', JSON.stringify(seeds));
   }, [seeds]);
+
+  useEffect(() => {
+    localStorage.setItem('tomato_archived_seeds', JSON.stringify(archivedSeeds));
+  }, [archivedSeeds]);
+
+  useEffect(() => {
+    localStorage.setItem('tomato_plant_sprites', JSON.stringify(plantSprites));
+  }, [plantSprites]);
+
+  useEffect(() => {
+    if (selectedTaskId) localStorage.setItem('tomato_selected_task', selectedTaskId);
+    else localStorage.removeItem('tomato_selected_task');
+  }, [selectedTaskId]);
 
   useEffect(() => {
     if (schedule) localStorage.setItem('tomato_active_schedule', JSON.stringify(schedule));
@@ -150,7 +227,8 @@ const App: React.FC = () => {
       completed: false,
       createdAt: Date.now(),
       priority,
-      status: 'backlog' // Default to backlog
+      status: 'backlog', // Default to backlog
+      focusTime: 0
     }));
     setSeeds(prev => [...newSeeds, ...prev]);
   };
@@ -161,10 +239,10 @@ const App: React.FC = () => {
 
   const handleMoveSeed = (id: string, status: 'active' | 'backlog') => {
     setSeeds(prev => {
-      // Enforce max 3 limit for active bench
+      // Enforce max 5 limit for active bench
       if (status === 'active') {
         const activeCount = prev.filter(s => s.status === 'active' && !s.completed).length;
-        if (activeCount >= 3) {
+        if (activeCount >= 5) {
           alert("Your Potting Bench is full! Harvest (complete) or move a plant back to the packet first.");
           return prev;
         }
@@ -174,17 +252,72 @@ const App: React.FC = () => {
   };
 
   const handleToggleSeed = (id: string) => {
-    setSeeds(prev => prev.map(s => s.id === id ? { ...s, completed: !s.completed } : s));
+    setSeeds(prev => {
+      const seed = prev.find(s => s.id === id);
+      if (seed && !seed.completed) {
+        // Transitioning to completed: archive it and add a background plant
+        const archived: ArchivedSeed = {
+          id: seed.id,
+          text: seed.text,
+          priority: seed.priority,
+          archivedAt: Date.now(),
+          archiveReason: 'completed',
+          focusTime: seed.focusTime || 0
+        };
+        setArchivedSeeds(ap => [archived, ...ap]);
+        setPlantSprites(ps => {
+          const pos = generatePlantPosition(ps, seed.id);
+          return [...ps, { id: `plant-${seed.id}-${Date.now()}`, x: pos.x, y: pos.y }];
+        });
+        if (selectedTaskId === id) setSelectedTaskId(null);
+      }
+      return prev.map(s => s.id === id ? { ...s, completed: !s.completed } : s);
+    });
   };
 
   const handleDeleteSeed = (id: string) => {
-    setSeeds(prev => prev.filter(s => s.id !== id));
+    setSeeds(prev => {
+      const seed = prev.find(s => s.id === id);
+      if (seed) {
+        const archived: ArchivedSeed = {
+          id: seed.id,
+          text: seed.text,
+          priority: seed.priority,
+          archivedAt: Date.now(),
+          archiveReason: 'deleted',
+          focusTime: seed.focusTime || 0
+        };
+        setArchivedSeeds(ap => [archived, ...ap]);
+        if (selectedTaskId === id) setSelectedTaskId(null);
+      }
+      return prev.filter(s => s.id !== id);
+    });
   };
 
   const handleClearSeeds = () => {
     if (window.confirm("Are you sure you want to clear your garden patch?")) {
-      setSeeds([]);
+      setSeeds(prev => {
+        const toArchive: ArchivedSeed[] = prev.map(s => ({
+          id: s.id,
+          text: s.text,
+          priority: s.priority,
+          archivedAt: Date.now(),
+          archiveReason: 'deleted' as const,
+          focusTime: s.focusTime || 0
+        }));
+        setArchivedSeeds(ap => [...toArchive, ...ap]);
+        return [];
+      });
+      setSelectedTaskId(null);
     }
+  };
+
+  const handleClearArchive = () => {
+    setArchivedSeeds([]);
+  };
+
+  const handleSelectTask = (id: string | null) => {
+    setSelectedTaskId(prev => prev === id ? null : id);
   };
 
   // --- Notification Logic ---
@@ -472,6 +605,24 @@ const App: React.FC = () => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isRunning, targetEndTime]);
 
+  // Task Focus Time Tracking — increments selected task's focus time every second
+  // only when timer is running AND current session is a focus session (not a break)
+  useEffect(() => {
+    const isFocusSession = schedule?.sessions[currentSessionIndex]?.type === SessionType.FOCUS;
+    if (isRunning && isFocusSession && selectedTaskId) {
+      taskTimerRef.current = setInterval(() => {
+        setSeeds(prev => prev.map(s =>
+          s.id === selectedTaskId
+            ? { ...s, focusTime: (s.focusTime || 0) + 1 }
+            : s
+        ));
+      }, 1000);
+    } else {
+      if (taskTimerRef.current) clearInterval(taskTimerRef.current);
+    }
+    return () => { if (taskTimerRef.current) clearInterval(taskTimerRef.current); };
+  }, [isRunning, schedule, currentSessionIndex, selectedTaskId]);
+
   const currentSession = schedule?.sessions[currentSessionIndex];
 
   // Helper for dial controls
@@ -481,7 +632,9 @@ const App: React.FC = () => {
   const decrementMinutes = () => setInputMinutes(prev => (prev - 5) < 0 ? 55 : prev - 5);
 
   return (
-    <div className="min-h-screen px-6 py-8 md:px-12 md:py-12 max-w-7xl mx-auto flex flex-col gap-8">
+    <div className="relative min-h-screen bg-yellow-50">
+      <PlantBackground sprites={plantSprites} />
+    <div className="relative z-10 min-h-screen px-6 py-8 md:px-12 md:py-12 max-w-7xl mx-auto flex flex-col gap-8">
       {/* Permission Modal */}
       {notificationPermission === 'default' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-yellow-50/90 backdrop-blur-xl animate-in zoom-in-95 duration-500">
@@ -742,6 +895,10 @@ const App: React.FC = () => {
             onDelete={handleDeleteSeed}
             onMove={handleMoveSeed}
             onClear={handleClearSeeds}
+            archivedCount={archivedSeeds.length}
+            onViewArchive={() => setShowArchive(true)}
+            selectedTaskId={selectedTaskId}
+            onSelectTask={handleSelectTask}
           />
 
           {/* Conditional Stats/Basket - only show when active */}
@@ -810,11 +967,19 @@ const App: React.FC = () => {
       )}
 
       {showHistory && (
-        <HistoryHub history={history} onClose={() => setShowHistory(false)} />
+        <HistoryHub history={history} archivedSeeds={archivedSeeds} onClose={() => setShowHistory(false)} />
       )}
 
       {showAbout && (
         <AboutModal onClose={() => setShowAbout(false)} />
+      )}
+
+      {showArchive && (
+        <ArchivedSeedsModal
+          archivedSeeds={archivedSeeds}
+          onClose={() => setShowArchive(false)}
+          onClearAll={handleClearArchive}
+        />
       )}
 
       <footer className="mt-auto py-6 text-center">
@@ -822,6 +987,7 @@ const App: React.FC = () => {
           Cultivated with care &bull; Tomato Time v3.1
         </p>
       </footer>
+    </div>
     </div>
   );
 };
