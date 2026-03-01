@@ -9,9 +9,25 @@ interface SeedChecklistProps {
   onDelete: (id: string) => void;
   onMove: (id: string, status: 'active' | 'backlog') => void;
   onClear: () => void;
+  archivedCount: number;
+  onViewArchive: () => void;
+  selectedTaskId: string | null;
+  onSelectTask: (id: string | null) => void;
 }
 
-export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEdit, onToggle, onDelete, onMove, onClear }) => {
+const formatFocusTime = (seconds: number = 0): string => {
+  if (seconds === 0) return '';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+export const SeedChecklist: React.FC<SeedChecklistProps> = ({
+  seeds, onAdd, onEdit, onToggle, onDelete, onMove, onClear,
+  archivedCount, onViewArchive, selectedTaskId, onSelectTask
+}) => {
   const [newSeedText, setNewSeedText] = useState('');
   const [newSeedPriority, setNewSeedPriority] = useState<'sun' | 'partial' | 'shade'>('partial');
   const [isBatchMode, setIsBatchMode] = useState(false);
@@ -109,7 +125,7 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
       >
         <h3 className="text-sm font-black text-yellow-800 uppercase tracking-widest mb-3 flex items-center justify-between">
           <span>🪴 Potting Bench</span>
-          <span className="text-[10px] bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full">{activeSeeds.length}/3</span>
+          <span className="text-[10px] bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full">{activeSeeds.length}/5</span>
         </h3>
 
         {activeSeeds.length === 0 ? (
@@ -118,35 +134,54 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-2">
-            {activeSeeds.map(seed => (
-              <div
-                key={seed.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, seed.id)}
-                className="bg-white p-3 rounded-xl border border-yellow-200 shadow-sm flex items-center justify-between group cursor-grab active:cursor-grabbing"
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <button
-                    onClick={() => onToggle(seed.id)}
-                    className="w-5 h-5 rounded-full border-2 border-yellow-400 text-transparent hover:bg-yellow-100 flex items-center justify-center transition-all"
-                    title="Harvest (Complete)"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-yellow-600 opacity-0 hover:opacity-100" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  <span className="font-bold text-stone-800 truncate text-sm">{seed.text}</span>
+            {activeSeeds.map(seed => {
+              const isSelected = seed.id === selectedTaskId;
+              const focusDisplay = formatFocusTime(seed.focusTime || 0);
+              return (
+                <div
+                  key={seed.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, seed.id)}
+                  className={`bg-white p-3 rounded-xl border shadow-sm flex items-start justify-between group cursor-grab active:cursor-grabbing transition-all ${
+                    isSelected ? 'border-red-300 ring-2 ring-red-100 bg-red-50/20' : 'border-yellow-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <button
+                      onClick={() => onToggle(seed.id)}
+                      className="w-5 h-5 mt-0.5 flex-shrink-0 rounded-full border-2 border-yellow-400 text-transparent hover:bg-yellow-100 flex items-center justify-center transition-all"
+                      title="Harvest (Complete)"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-yellow-600 opacity-0 hover:opacity-100" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => onSelectTask(isSelected ? null : seed.id)}
+                      title={isSelected ? "Deselect task (stop tracking time)" : "Select to track focus time"}
+                    >
+                      <span className="font-bold text-stone-800 text-sm break-words">{seed.text}</span>
+                      {isSelected && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">
+                            🎯 {focusDisplay ? `⏱ ${focusDisplay}` : 'Tracking...'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                    <span className="text-xs" title="Priority">{getSunIcon(seed.priority)}</span>
+                    <button onClick={() => onMove(seed.id, 'backlog')} className="text-stone-300 hover:text-stone-500 p-1" title="Move back to packet">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs" title="Priority">{getSunIcon(seed.priority)}</span>
-                  <button onClick={() => onMove(seed.id, 'backlog')} className="text-stone-300 hover:text-stone-500 p-1" title="Move back to packet">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -161,14 +196,24 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
           <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">
             <span>🌱</span> Seed Packet
           </h3>
-          {seeds.length > 0 && (
-            <button
-              onClick={onClear}
-              className="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-widest transition-colors"
-            >
-              Clear Patch
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {archivedCount > 0 && (
+              <button
+                onClick={onViewArchive}
+                className="text-[10px] font-bold text-stone-400 hover:text-green-600 uppercase tracking-widest transition-colors"
+              >
+                📦 Previous ({archivedCount})
+              </button>
+            )}
+            {seeds.length > 0 && (
+              <button
+                onClick={onClear}
+                className="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-widest transition-colors"
+              >
+                Clear Patch
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Input Form */}
@@ -256,11 +301,11 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
                 onDragStart={(e) => handleDragStart(e, seed.id)}
                 className={`group flex items-center justify-between p-3 rounded-xl border border-stone-100 hover:border-green-200 bg-white transition-all ${editingId === seed.id ? 'border-blue-300 ring-2 ring-blue-100' : 'cursor-grab active:cursor-grabbing hover:shadow-sm'}`}
               >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
                   {/* Move Up Button (Mobile friendly equivalent of drag) */}
                   <button
                     onClick={() => onMove(seed.id, 'active')}
-                    className="w-6 h-6 rounded-lg bg-stone-50 text-stone-300 hover:bg-green-100 hover:text-green-600 flex items-center justify-center transition-colors"
+                    className="w-6 h-6 mt-0.5 flex-shrink-0 rounded-lg bg-stone-50 text-stone-300 hover:bg-green-100 hover:text-green-600 flex items-center justify-center transition-colors"
                     title="Move to Potting Bench"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -293,11 +338,11 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
                       </div>
                     ) : (
                       <div
-                        className="flex items-center gap-2 cursor-pointer"
+                        className="flex items-start gap-2 cursor-pointer"
                         onDoubleClick={() => handleStartEdit(seed)}
                       >
-                        <span className="text-xs" title="Priority">{getSunIcon(seed.priority)}</span>
-                        <span className={`font-bold text-sm truncate select-none text-stone-700`}>
+                        <span className="text-xs mt-0.5 flex-shrink-0" title="Priority">{getSunIcon(seed.priority)}</span>
+                        <span className="font-bold text-sm break-words select-none text-stone-700">
                           {seed.text}
                         </span>
                       </div>
@@ -305,7 +350,7 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({ seeds, onAdd, onEd
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-2">
                   <button
                     onClick={() => onDelete(seed.id)}
                     className="text-stone-300 hover:text-red-400 p-1"

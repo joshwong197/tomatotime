@@ -45,4 +45,20 @@ export interface Seed {
   createdAt: number;
   priority: 'sun' | 'partial' | 'shade'; // sun = high, partial = medium, shade = low
   status: 'active' | 'backlog'; // active = potting bench, backlog = packet
+  focusTime: number; // seconds of accumulated focus time
+}
+
+export interface ArchivedSeed {
+  id: string;
+  text: string;
+  priority: 'sun' | 'partial' | 'shade';
+  archivedAt: number;
+  archiveReason: 'completed' | 'deleted';
+  focusTime: number;
+}
+
+export interface PlantSprite {
+  id: string;
+  x: number; // percentage from left (0–100)
+  y: number; // percentage from top (0–100)
 }
