@@ -605,15 +605,19 @@ const App: React.FC = () => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isRunning, targetEndTime]);
 
-  // Task Focus Time Tracking — increments selected task's focus time every second
-  // only when timer is running AND current session is a focus session (not a break)
+  // Task Focus Time Tracking — uses wall-clock elapsed time so it stays accurate in background tabs
   useEffect(() => {
     const isFocusSession = schedule?.sessions[currentSessionIndex]?.type === SessionType.FOCUS;
     if (isRunning && isFocusSession && selectedTaskId) {
+      const startedAt = Date.now();
+      // Capture baseline once when the timer (re)starts; seeds intentionally omitted from deps
+      // so this effect only re-runs on timer/task changes, not on every seeds update.
+      const baseline = seeds.find(s => s.id === selectedTaskId)?.focusTime ?? 0;
       taskTimerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
         setSeeds(prev => prev.map(s =>
           s.id === selectedTaskId
-            ? { ...s, focusTime: (s.focusTime || 0) + 1 }
+            ? { ...s, focusTime: baseline + elapsed }
             : s
         ));
       }, 1000);
@@ -621,7 +625,7 @@ const App: React.FC = () => {
       if (taskTimerRef.current) clearInterval(taskTimerRef.current);
     }
     return () => { if (taskTimerRef.current) clearInterval(taskTimerRef.current); };
-  }, [isRunning, schedule, currentSessionIndex, selectedTaskId]);
+  }, [isRunning, schedule, currentSessionIndex, selectedTaskId]); // seeds intentionally omitted
 
   const currentSession = schedule?.sessions[currentSessionIndex];
 
