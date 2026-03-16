@@ -46,14 +46,16 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
   const [editingPriority, setEditingPriority] = useState<'sun' | 'partial' | 'shade'>('partial');
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  // Completion choice state: which seed is showing the harvest/greenhouse choice
+  // Completion choice state
   const [completionChoiceId, setCompletionChoiceId] = useState<string | null>(null);
 
-  // Greenhouse collapsed state
+  // Collapse states
   const [greenhouseCollapsed, setGreenhouseCollapsed] = useState(false);
+  const [packetCollapsed, setPacketCollapsed] = useState(false);
+  const [collapsedBeds, setCollapsedBeds] = useState<Set<string>>(new Set());
 
-  // Garden bed filter
-  const [activeBedFilter, setActiveBedFilter] = useState<string | null>(null); // null = "All Seeds"
+  // Drag-over highlight
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
   // Garden bed creation
   const [isAddingBed, setIsAddingBed] = useState(false);
@@ -66,21 +68,15 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
   const editBedInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editingId && editInputRef.current) {
-      editInputRef.current.focus();
-    }
+    if (editingId && editInputRef.current) editInputRef.current.focus();
   }, [editingId]);
 
   useEffect(() => {
-    if (isAddingBed && newBedInputRef.current) {
-      newBedInputRef.current.focus();
-    }
+    if (isAddingBed && newBedInputRef.current) newBedInputRef.current.focus();
   }, [isAddingBed]);
 
   useEffect(() => {
-    if (editingBedId && editBedInputRef.current) {
-      editBedInputRef.current.focus();
-    }
+    if (editingBedId && editBedInputRef.current) editBedInputRef.current.focus();
   }, [editingBedId]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -88,9 +84,9 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
     if (newSeedText.trim()) {
       if (isBatchMode) {
         const tasks = newSeedText.split(/\n/).map(t => t.trim()).filter(t => t.length > 0);
-        if (tasks.length > 0) onAdd(tasks, newSeedPriority, activeBedFilter || newSeedBedId);
+        if (tasks.length > 0) onAdd(tasks, newSeedPriority, newSeedBedId);
       } else {
-        onAdd([newSeedText.trim()], newSeedPriority, activeBedFilter || newSeedBedId);
+        onAdd([newSeedText.trim()], newSeedPriority, newSeedBedId);
       }
       setNewSeedText('');
       setNewSeedPriority('partial');
@@ -127,14 +123,40 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
 
   const handleDropOnBench = (e: React.DragEvent) => {
     e.preventDefault();
+    setDragOverTarget(null);
     const id = e.dataTransfer.getData("application/tomato-seed");
     if (id) onMove(id, 'active');
   };
 
   const handleDropOnPacket = (e: React.DragEvent) => {
     e.preventDefault();
+    setDragOverTarget(null);
     const id = e.dataTransfer.getData("application/tomato-seed");
-    if (id) onMove(id, 'backlog');
+    if (id) {
+      // Move to backlog and unassign from any garden bed
+      onMove(id, 'backlog');
+      onAssignGardenBed(id, undefined);
+    }
+  };
+
+  const handleDropOnBed = (e: React.DragEvent, bedId: string) => {
+    e.preventDefault();
+    setDragOverTarget(null);
+    const id = e.dataTransfer.getData("application/tomato-seed");
+    if (id) {
+      // Move to backlog and assign to this garden bed
+      onMove(id, 'backlog');
+      onAssignGardenBed(id, bedId);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, target: string) => {
+    e.preventDefault();
+    setDragOverTarget(target);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverTarget(null);
   };
 
   const handleSaveBed = () => {
@@ -155,6 +177,15 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
     setEditingBedName('');
   };
 
+  const toggleBedCollapsed = (bedId: string) => {
+    setCollapsedBeds(prev => {
+      const next = new Set(prev);
+      if (next.has(bedId)) next.delete(bedId);
+      else next.add(bedId);
+      return next;
+    });
+  };
+
   const getSunIcon = (p: string) => {
     switch (p) {
       case 'sun': return '☀️';
@@ -173,29 +204,125 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
   const greenhouseSeeds = seeds.filter(s => s.status === 'greenhouse');
   const backlogSeeds = seeds.filter(s => s.status === 'backlog' && !s.completed);
 
-  // Filter backlog by garden bed
-  const filteredBacklog = activeBedFilter
-    ? backlogSeeds.filter(s => s.gardenBedId === activeBedFilter)
-    : backlogSeeds;
+  // Unassigned backlog seeds (no garden bed) go in the Seed Packet
+  const unassignedBacklog = backlogSeeds.filter(s => !s.gardenBedId);
 
-  // Sort backlog by priority: Sun > Partial > Shade
-  const sortedBacklog = [...filteredBacklog].sort((a, b) => {
-    const pMap = { sun: 3, partial: 2, shade: 1 };
+  // Seeds per garden bed
+  const seedsForBed = (bedId: string) => backlogSeeds.filter(s => s.gardenBedId === bedId);
+
+  // Sort by priority: Sun > Partial > Shade, then by creation date
+  const sortByPriority = (list: Seed[]) => [...list].sort((a, b) => {
+    const pMap: Record<string, number> = { sun: 3, partial: 2, shade: 1 };
     const pA = pMap[a.priority || 'partial'];
     const pB = pMap[b.priority || 'partial'];
     if (pA !== pB) return pB - pA;
     return b.createdAt - a.createdAt;
   });
 
-  // Bed task counts for badges
-  const bedTaskCounts = (bedId: string) => backlogSeeds.filter(s => s.gardenBedId === bedId).length;
+  const sortedUnassigned = sortByPriority(unassignedBacklog);
+
+  // Render a single backlog/bed seed row
+  const renderBacklogSeed = (seed: Seed, showBedBadge: boolean = false) => {
+    const bedName = getBedName(seed.gardenBedId);
+    return (
+      <div
+        key={seed.id}
+        draggable={editingId !== seed.id}
+        onDragStart={(e) => handleDragStart(e, seed.id)}
+        className={`group flex items-center justify-between p-3 rounded-xl border border-stone-100 hover:border-green-200 bg-white transition-all ${editingId === seed.id ? 'border-blue-300 ring-2 ring-blue-100' : 'cursor-grab active:cursor-grabbing hover:shadow-sm'}`}
+      >
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <button
+            onClick={() => onMove(seed.id, 'active')}
+            className="w-6 h-6 mt-0.5 flex-shrink-0 rounded-lg bg-stone-50 text-stone-300 hover:bg-green-100 hover:text-green-600 flex items-center justify-center transition-colors"
+            title="Move to Potting Bench"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+          </button>
+
+          <div className="flex-1 min-w-0">
+            {editingId === seed.id ? (
+              <div className="flex flex-col gap-1">
+                <input
+                  ref={editInputRef}
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  onBlur={handleSaveEdit}
+                  onKeyDown={handleKeyDownEdit}
+                  className="w-full bg-stone-50 border-none rounded px-1 outline-none font-bold text-sm text-stone-800"
+                />
+                <div className="flex gap-1">
+                  {['sun', 'partial', 'shade'].map(p => (
+                    <button
+                      key={p}
+                      onMouseDown={() => setEditingPriority(p as any)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${editingPriority === p ? 'bg-stone-200 text-stone-800' : 'text-stone-300 hover:bg-stone-100'}`}
+                    >
+                      {getSunIcon(p)}
+                    </button>
+                  ))}
+                </div>
+                {gardenBeds.length > 0 && (
+                  <select
+                    value={seed.gardenBedId || ''}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onChange={(e) => { onAssignGardenBed(seed.id, e.target.value || undefined); }}
+                    className="mt-0.5 bg-stone-50 border border-stone-200 rounded px-1 py-0.5 text-[10px] font-bold text-stone-600 outline-none"
+                  >
+                    <option value="">No bed</option>
+                    {gardenBeds.map(bed => (
+                      <option key={bed.id} value={bed.id}>🌿 {bed.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            ) : (
+              <div
+                className="flex items-start gap-2 cursor-pointer"
+                onDoubleClick={() => handleStartEdit(seed)}
+              >
+                <span className="text-xs mt-0.5 flex-shrink-0" title="Priority">{getSunIcon(seed.priority)}</span>
+                <div className="min-w-0">
+                  <span className="font-bold text-sm break-words select-none text-stone-700">
+                    {seed.text}
+                  </span>
+                  {showBedBadge && bedName && (
+                    <div className="mt-0.5">
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                        🌿 {bedName}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-2">
+          <button
+            onClick={() => onDelete(seed.id)}
+            className="text-stone-300 hover:text-red-400 p-1"
+            title="Dig up seed"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Top: The Potting Bench (Active) */}
+      {/* === POTTING BENCH (Active / Timed Tasks) === */}
       <div
-        className="tomato-card p-4 bg-yellow-50/50 border-yellow-100 min-h-[140px] flex flex-col transition-colors hover:bg-yellow-50"
-        onDragOver={(e) => e.preventDefault()}
+        className={`tomato-card p-4 bg-yellow-50/50 border-yellow-100 min-h-[140px] flex flex-col transition-colors ${dragOverTarget === 'bench' ? 'ring-2 ring-yellow-400 bg-yellow-100/60' : 'hover:bg-yellow-50'}`}
+        onDragOver={(e) => handleDragOver(e, 'bench')}
+        onDragLeave={handleDragLeave}
         onDrop={handleDropOnBench}
       >
         <h3 className="text-sm font-black text-yellow-800 uppercase tracking-widest mb-3 flex items-center justify-between">
@@ -225,7 +352,6 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
                 >
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     {showingChoice ? (
-                      /* Completion choice: Harvest or Greenhouse */
                       <div className="flex gap-2 w-full animate-in fade-in duration-200">
                         <button
                           onClick={() => { onHarvest(seed.id); setCompletionChoiceId(null); }}
@@ -301,7 +427,7 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
         )}
       </div>
 
-      {/* Middle: Greenhouse (Follow-up Bucket) */}
+      {/* === GREENHOUSE (Follow-up) === */}
       {greenhouseSeeds.length > 0 && (
         <div className="tomato-card p-4 bg-emerald-50/50 border-emerald-100 flex flex-col transition-colors">
           <button
@@ -367,16 +493,121 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
         </div>
       )}
 
-      {/* Bottom: The Seed Packet (Backlog) */}
+      {/* === GARDEN BEDS (Project Sections) === */}
+      {gardenBeds.map(bed => {
+        const bedSeeds = sortByPriority(seedsForBed(bed.id));
+        const isCollapsed = collapsedBeds.has(bed.id);
+        const isDragOver = dragOverTarget === `bed-${bed.id}`;
+        return (
+          <div
+            key={bed.id}
+            className={`tomato-card p-4 bg-amber-50/40 border-amber-100 flex flex-col transition-colors ${isDragOver ? 'ring-2 ring-amber-400 bg-amber-100/60' : ''}`}
+            onDragOver={(e) => handleDragOver(e, `bed-${bed.id}`)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDropOnBed(e, bed.id)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              {editingBedId === bed.id ? (
+                <input
+                  ref={editBedInputRef}
+                  value={editingBedName}
+                  onChange={(e) => setEditingBedName(e.target.value)}
+                  onBlur={handleSaveEditBed}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveEditBed();
+                    if (e.key === 'Escape') { setEditingBedId(null); setEditingBedName(''); }
+                  }}
+                  className="text-sm font-black text-amber-800 uppercase tracking-widest bg-white border border-amber-300 rounded-lg px-2 py-1 outline-none"
+                />
+              ) : (
+                <button
+                  onClick={() => toggleBedCollapsed(bed.id)}
+                  onDoubleClick={(e) => { e.stopPropagation(); setEditingBedId(bed.id); setEditingBedName(bed.name); }}
+                  className="text-sm font-black text-amber-800 uppercase tracking-widest flex items-center gap-2 hover:text-amber-900 transition-colors text-left"
+                  title="Click to collapse, double-click to rename"
+                >
+                  <span>🌿 {bed.name}</span>
+                  <span className="text-[10px] bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">{bedSeeds.length}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (window.confirm(`Remove garden bed "${bed.name}"? Seeds will move to Seed Packet.`)) {
+                    onDeleteGardenBed(bed.id);
+                  }
+                }}
+                className="text-stone-300 hover:text-red-400 p-1 transition-colors"
+                title="Remove garden bed"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {!isCollapsed && (
+              bedSeeds.length === 0 ? (
+                <div className="flex items-center justify-center border-2 border-dashed border-amber-200 rounded-xl py-4">
+                  <p className="text-xs font-bold text-amber-300 text-center px-4">Drag seeds here</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {bedSeeds.map(seed => renderBacklogSeed(seed))}
+                </div>
+              )
+            )}
+          </div>
+        );
+      })}
+
+      {/* Add Garden Bed button */}
+      <div className="flex items-center justify-center">
+        {isAddingBed ? (
+          <div className="flex items-center gap-2 w-full">
+            <input
+              ref={newBedInputRef}
+              value={newBedName}
+              onChange={(e) => setNewBedName(e.target.value)}
+              onBlur={handleSaveBed}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveBed();
+                if (e.key === 'Escape') { setIsAddingBed(false); setNewBedName(''); }
+              }}
+              placeholder="Name your garden bed..."
+              className="flex-1 bg-white border-2 border-dashed border-amber-300 rounded-2xl px-4 py-2.5 text-sm font-bold text-stone-700 outline-none focus:border-amber-400 placeholder:text-stone-300"
+            />
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsAddingBed(true)}
+            className="w-full py-2.5 border-2 border-dashed border-stone-200 rounded-2xl text-xs font-bold text-stone-400 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50/30 transition-colors"
+          >
+            + New Garden Bed
+          </button>
+        )}
+      </div>
+
+      {/* === SEED PACKET (Unassigned Backlog) === */}
       <div
-        className="tomato-card p-6 border-stone-50 bg-white flex flex-col flex-1 min-h-0"
-        onDragOver={(e) => e.preventDefault()}
+        className={`tomato-card p-6 border-stone-50 bg-white flex flex-col flex-1 min-h-0 transition-colors ${dragOverTarget === 'packet' ? 'ring-2 ring-stone-400 bg-stone-50' : ''}`}
+        onDragOver={(e) => handleDragOver(e, 'packet')}
+        onDragLeave={handleDragLeave}
         onDrop={handleDropOnPacket}
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">
+          <button
+            onClick={() => setPacketCollapsed(!packetCollapsed)}
+            className="text-lg font-black text-stone-800 flex items-center gap-2 hover:text-stone-900 transition-colors"
+          >
             <span>🌱</span> Seed Packet
-          </h3>
+            <span className="text-[10px] bg-stone-200 text-stone-600 px-2 py-0.5 rounded-full font-bold">{unassignedBacklog.length}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform text-stone-400 ${packetCollapsed ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
           <div className="flex items-center gap-3">
             {archivedCount > 0 && (
               <button
@@ -397,307 +628,105 @@ export const SeedChecklist: React.FC<SeedChecklistProps> = ({
           </div>
         </div>
 
-        {/* Garden Bed Filter Pills */}
-        {gardenBeds.length > 0 && (
-          <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar" style={{ scrollbarWidth: 'thin' }}>
-            <button
-              onClick={() => setActiveBedFilter(null)}
-              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
-                activeBedFilter === null
-                  ? 'bg-stone-800 text-white shadow-sm'
-                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-              }`}
-            >
-              All ({backlogSeeds.length})
-            </button>
-            {gardenBeds.map(bed => {
-              const count = bedTaskCounts(bed.id);
-              return editingBedId === bed.id ? (
-                <input
-                  key={bed.id}
-                  ref={editBedInputRef}
-                  value={editingBedName}
-                  onChange={(e) => setEditingBedName(e.target.value)}
-                  onBlur={handleSaveEditBed}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveEditBed();
-                    if (e.key === 'Escape') { setEditingBedId(null); setEditingBedName(''); }
-                  }}
-                  className="flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white border border-emerald-300 outline-none w-24"
-                />
-              ) : (
+        {!packetCollapsed && (
+          <>
+            {/* Input Form */}
+            <form onSubmit={handleSubmit} className="mb-4 flex flex-col gap-2 bg-stone-50 p-3 rounded-2xl border border-stone-100">
+              <div className="flex gap-2">
                 <button
-                  key={bed.id}
-                  onClick={() => setActiveBedFilter(activeBedFilter === bed.id ? null : bed.id)}
-                  onDoubleClick={() => { setEditingBedId(bed.id); setEditingBedName(bed.name); }}
-                  className={`group/bed flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
-                    activeBedFilter === bed.id
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100'
-                  }`}
-                  title="Click to filter, double-click to rename"
+                  type="button"
+                  onClick={() => setIsBatchMode(!isBatchMode)}
+                  className={`p-2 rounded-xl border-2 transition-all ${isBatchMode ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-400 border-stone-200 hover:border-stone-300'}`}
+                  title={isBatchMode ? "Switch to single item mode" : "Switch to batch mode (paste list)"}
                 >
-                  <span>🌿 {bed.name}</span>
-                  {count > 0 && <span className={`ml-0.5 px-1 py-0 rounded-full text-[8px] ${activeBedFilter === bed.id ? 'bg-emerald-600' : 'bg-emerald-200 text-emerald-800'}`}>{count}</span>}
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm(`Remove garden bed "${bed.name}"? Seeds will be kept but unassigned.`)) {
-                        onDeleteGardenBed(bed.id);
-                        if (activeBedFilter === bed.id) setActiveBedFilter(null);
+                  {isBatchMode ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM9 15a1 1 0 011-1h6a1 1 0 110 2h-6a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                  )}
+                </button>
+
+                {isBatchMode ? (
+                  <textarea
+                    value={newSeedText}
+                    onChange={(e) => setNewSeedText(e.target.value)}
+                    placeholder="Paste multiple seeds here...&#10;One per line"
+                    className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors min-h-[80px] resize-y"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        handleSubmit(e);
                       }
                     }}
-                    className={`ml-0.5 opacity-0 group-hover/bed:opacity-100 hover:text-red-500 transition-all cursor-pointer ${activeBedFilter === bed.id ? 'text-emerald-300' : 'text-stone-400'}`}
-                    title="Remove garden bed"
-                  >
-                    ×
-                  </span>
-                </button>
-              );
-            })}
-            {isAddingBed ? (
-              <input
-                ref={newBedInputRef}
-                value={newBedName}
-                onChange={(e) => setNewBedName(e.target.value)}
-                onBlur={handleSaveBed}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSaveBed();
-                  if (e.key === 'Escape') { setIsAddingBed(false); setNewBedName(''); }
-                }}
-                placeholder="Bed name..."
-                className="flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white border border-emerald-300 outline-none w-24 placeholder:text-stone-300"
-              />
-            ) : (
-              <button
-                onClick={() => setIsAddingBed(true)}
-                className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 text-stone-400 hover:bg-emerald-100 hover:text-emerald-600 flex items-center justify-center transition-colors text-sm"
-                title="Add Garden Bed"
-              >
-                +
-              </button>
-            )}
-          </div>
-        )}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={newSeedText}
+                    onChange={(e) => setNewSeedText(e.target.value)}
+                    placeholder="New seed..."
+                    className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors"
+                  />
+                )}
 
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="mb-4 flex flex-col gap-2 bg-stone-50 p-3 rounded-2xl border border-stone-100">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setIsBatchMode(!isBatchMode)}
-              className={`p-2 rounded-xl border-2 transition-all ${isBatchMode ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-400 border-stone-200 hover:border-stone-300'}`}
-              title={isBatchMode ? "Switch to single item mode" : "Switch to batch mode (paste list)"}
-            >
-              {isBatchMode ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM9 15a1 1 0 011-1h6a1 1 0 110 2h-6a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-              )}
-            </button>
-
-            {isBatchMode ? (
-              <textarea
-                value={newSeedText}
-                onChange={(e) => setNewSeedText(e.target.value)}
-                placeholder="Paste multiple seeds here...&#10;One per line"
-                className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors min-h-[80px] resize-y"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    handleSubmit(e);
-                  }
-                }}
-              />
-            ) : (
-              <input
-                type="text"
-                value={newSeedText}
-                onChange={(e) => setNewSeedText(e.target.value)}
-                placeholder="New seed..."
-                className="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors"
-              />
-            )}
-
-            <button
-              type="submit"
-              disabled={!newSeedText.trim()}
-              className="bg-green-500 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-green-600 transition-colors shadow-sm active:translate-y-0.5 active:shadow-none h-fit self-start"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-          {isBatchMode && <p className="text-[10px] text-stone-400 font-bold ml-12">Press Ctrl+Enter to add all</p>}
-
-          {/* Priority Selectors */}
-          <div className="flex gap-2 mt-1">
-            {[
-              { id: 'sun', icon: '☀️', label: 'Full Sun' },
-              { id: 'partial', icon: '⛅', label: 'Partial' },
-              { id: 'shade', icon: '☁️', label: 'Shade' }
-            ].map(opt => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setNewSeedPriority(opt.id as any)}
-                className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all ${newSeedPriority === opt.id
-                  ? 'bg-white text-stone-800 shadow-sm border border-stone-200 ring-1 ring-stone-200'
-                  : 'text-stone-400 hover:bg-stone-100'
-                  }`}
-              >
-                <span>{opt.icon}</span> <span>{opt.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Garden Bed selector (only when not filtering by a bed and beds exist) */}
-          {gardenBeds.length > 0 && !activeBedFilter && (
-            <select
-              value={newSeedBedId || ''}
-              onChange={(e) => setNewSeedBedId(e.target.value || undefined)}
-              className="mt-1 bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs font-bold text-stone-600 outline-none focus:border-emerald-400 transition-colors"
-            >
-              <option value="">No garden bed</option>
-              {gardenBeds.map(bed => (
-                <option key={bed.id} value={bed.id}>🌿 {bed.name}</option>
-              ))}
-            </select>
-          )}
-        </form>
-
-        {/* Garden Bed creation shortcut when no beds exist */}
-        {gardenBeds.length === 0 && (
-          <div className="mb-3">
-            {isAddingBed ? (
-              <div className="flex items-center gap-2">
-                <input
-                  ref={newBedInputRef}
-                  value={newBedName}
-                  onChange={(e) => setNewBedName(e.target.value)}
-                  onBlur={handleSaveBed}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveBed();
-                    if (e.key === 'Escape') { setIsAddingBed(false); setNewBedName(''); }
-                  }}
-                  placeholder="Name your garden bed..."
-                  className="flex-1 bg-white border border-emerald-200 rounded-lg px-2 py-1.5 text-xs font-bold text-stone-600 outline-none focus:border-emerald-400 placeholder:text-stone-300"
-                />
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsAddingBed(true)}
-                className="text-[10px] font-bold text-emerald-500 hover:text-emerald-700 uppercase tracking-widest transition-colors"
-              >
-                + New Garden Bed
-              </button>
-            )}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
-          {sortedBacklog.length === 0 ? (
-            <div className="text-center py-8 text-stone-300">
-              <p className="text-sm font-bold italic">{activeBedFilter ? 'No seeds in this bed.' : 'Packet is empty.'}</p>
-            </div>
-          ) : (
-            sortedBacklog.map(seed => {
-              const bedName = getBedName(seed.gardenBedId);
-              return (
-                <div
-                  key={seed.id}
-                  draggable={editingId !== seed.id}
-                  onDragStart={(e) => handleDragStart(e, seed.id)}
-                  className={`group flex items-center justify-between p-3 rounded-xl border border-stone-100 hover:border-green-200 bg-white transition-all ${editingId === seed.id ? 'border-blue-300 ring-2 ring-blue-100' : 'cursor-grab active:cursor-grabbing hover:shadow-sm'}`}
+                <button
+                  type="submit"
+                  disabled={!newSeedText.trim()}
+                  className="bg-green-500 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-green-600 transition-colors shadow-sm active:translate-y-0.5 active:shadow-none h-fit self-start"
                 >
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    {/* Move Up Button (Mobile friendly equivalent of drag) */}
-                    <button
-                      onClick={() => onMove(seed.id, 'active')}
-                      className="w-6 h-6 mt-0.5 flex-shrink-0 rounded-lg bg-stone-50 text-stone-300 hover:bg-green-100 hover:text-green-600 flex items-center justify-center transition-colors"
-                      title="Move to Potting Bench"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                      </svg>
-                    </button>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              {isBatchMode && <p className="text-[10px] text-stone-400 font-bold ml-12">Press Ctrl+Enter to add all</p>}
 
-                    <div className="flex-1 min-w-0">
-                      {editingId === seed.id ? (
-                        <div className="flex flex-col gap-1">
-                          <input
-                            ref={editInputRef}
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            onBlur={handleSaveEdit}
-                            onKeyDown={handleKeyDownEdit}
-                            className="w-full bg-stone-50 border-none rounded px-1 outline-none font-bold text-sm text-stone-800"
-                          />
-                          <div className="flex gap-1">
-                            {['sun', 'partial', 'shade'].map(p => (
-                              <button
-                                key={p}
-                                onMouseDown={() => setEditingPriority(p as any)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${editingPriority === p ? 'bg-stone-200 text-stone-800' : 'text-stone-300 hover:bg-stone-100'}`}
-                              >
-                                {getSunIcon(p)}
-                              </button>
-                            ))}
-                          </div>
-                          {/* Garden bed assignment in edit mode */}
-                          {gardenBeds.length > 0 && (
-                            <select
-                              value={seed.gardenBedId || ''}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onChange={(e) => { onAssignGardenBed(seed.id, e.target.value || undefined); }}
-                              className="mt-0.5 bg-stone-50 border border-stone-200 rounded px-1 py-0.5 text-[10px] font-bold text-stone-600 outline-none"
-                            >
-                              <option value="">No bed</option>
-                              {gardenBeds.map(bed => (
-                                <option key={bed.id} value={bed.id}>🌿 {bed.name}</option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          className="flex items-start gap-2 cursor-pointer"
-                          onDoubleClick={() => handleStartEdit(seed)}
-                        >
-                          <span className="text-xs mt-0.5 flex-shrink-0" title="Priority">{getSunIcon(seed.priority)}</span>
-                          <div className="min-w-0">
-                            <span className="font-bold text-sm break-words select-none text-stone-700">
-                              {seed.text}
-                            </span>
-                            {bedName && !activeBedFilter && (
-                              <div className="mt-0.5">
-                                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
-                                  🌿 {bedName}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {/* Priority Selectors */}
+              <div className="flex gap-2 mt-1">
+                {[
+                  { id: 'sun', icon: '☀️', label: 'Full Sun' },
+                  { id: 'partial', icon: '⛅', label: 'Partial' },
+                  { id: 'shade', icon: '☁️', label: 'Shade' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setNewSeedPriority(opt.id as any)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all ${newSeedPriority === opt.id
+                      ? 'bg-white text-stone-800 shadow-sm border border-stone-200 ring-1 ring-stone-200'
+                      : 'text-stone-400 hover:bg-stone-100'
+                      }`}
+                  >
+                    <span>{opt.icon}</span> <span>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
 
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-2">
-                    <button
-                      onClick={() => onDelete(seed.id)}
-                      className="text-stone-300 hover:text-red-400 p-1"
-                      title="Dig up seed"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
+              {/* Garden Bed selector for new seeds */}
+              {gardenBeds.length > 0 && (
+                <select
+                  value={newSeedBedId || ''}
+                  onChange={(e) => setNewSeedBedId(e.target.value || undefined)}
+                  className="mt-1 bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs font-bold text-stone-600 outline-none focus:border-emerald-400 transition-colors"
+                >
+                  <option value="">No garden bed (Seed Packet)</option>
+                  {gardenBeds.map(bed => (
+                    <option key={bed.id} value={bed.id}>🌿 {bed.name}</option>
+                  ))}
+                </select>
+              )}
+            </form>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+              {sortedUnassigned.length === 0 ? (
+                <div className="text-center py-8 text-stone-300">
+                  <p className="text-sm font-bold italic">Packet is empty.</p>
                 </div>
-              );
-            })
-          )}
-        </div>
+              ) : (
+                sortedUnassigned.map(seed => renderBacklogSeed(seed))
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
