@@ -82,7 +82,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   return (
     <div className="hunt-card overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
       {/* Input */}
-      <TaskInput grounds={grounds} onAdd={onAddBeasts} />
+      <TaskInput grounds={grounds} onAdd={onAddBeasts} onAddGround={onAddGround} />
 
       {/* Scrollable list */}
       <div className="flex-1 overflow-y-auto space-y-2 px-2 pb-4">
