@@ -8,7 +8,11 @@ import { HistoryHub } from './components/HistoryHub';
 import { SeedChecklist } from './components/SeedChecklist';
 import { AboutModal } from './components/AboutModal';
 import { ArchivedSeedsModal } from './components/ArchivedSeedsModal';
+import { AuthGate } from './components/AuthGate';
 import { audioService } from './services/audioService';
+import { supabase } from './services/supabaseClient';
+import { useSupabaseSync } from './hooks/useSupabaseSync';
+import type { User } from '@supabase/supabase-js';
 
 // Helper: hash a string id to an x/y percentage for deterministic plant placement
 function hashToPercent(id: string, salt: number): number {
@@ -53,6 +57,24 @@ const PlantBackground: React.FC<{ sprites: PlantSprite[] }> = ({ sprites }) => (
 );
 
 const App: React.FC = () => {
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [skipAuth, setSkipAuth] = useState(() => localStorage.getItem('tomato_skip_auth') === 'true');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Manual Timer Input State
   const [inputHours, setInputHours] = useState(0);
   const [inputMinutes, setInputMinutes] = useState(30);
@@ -164,6 +186,20 @@ const App: React.FC = () => {
   const timerRef = useRef<any>(null);
   const pauseTimerRef = useRef<any>(null);
   const taskTimerRef = useRef<any>(null);
+
+  // Supabase Sync
+  useSupabaseSync({
+    userId: user?.id ?? null,
+    state: { seeds, archivedSeeds, gardenBeds, plantSprites, dailyStats, history },
+    onRemoteData: (data) => {
+      setSeeds(data.seeds);
+      setArchivedSeeds(data.archivedSeeds);
+      setGardenBeds(data.gardenBeds);
+      setPlantSprites(data.plantSprites);
+      if (data.dailyStats && data.dailyStats.date) setDailyStats(data.dailyStats);
+      if (data.history) setHistory(data.history);
+    },
+  });
 
   // Persistence Effects
   useEffect(() => {
@@ -377,6 +413,17 @@ const App: React.FC = () => {
 
   const handleAssignGardenBed = (seedId: string, bedId: string | undefined) => {
     setSeeds(prev => prev.map(s => s.id === seedId ? { ...s, gardenBedId: bedId } : s));
+  };
+
+  // --- Auth Handlers ---
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  const handleContinueLocal = () => {
+    setSkipAuth(true);
+    localStorage.setItem('tomato_skip_auth', 'true');
   };
 
   // --- Notification Logic ---
@@ -694,6 +741,22 @@ const App: React.FC = () => {
   const incrementMinutes = () => setInputMinutes(prev => (prev + 5) >= 60 ? 0 : prev + 5);
   const decrementMinutes = () => setInputMinutes(prev => (prev - 5) < 0 ? 55 : prev - 5);
 
+  // Show auth gate if not logged in and hasn't skipped
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fefce8]">
+        <div className="text-center space-y-4">
+          <div className="text-6xl floating">🍅</div>
+          <p className="text-sm font-bold text-stone-400 uppercase tracking-widest">Loading garden...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && !skipAuth) {
+    return <AuthGate onContinueLocal={handleContinueLocal} />;
+  }
+
   return (
     <div className="relative min-h-screen bg-yellow-50">
       <PlantBackground sprites={plantSprites} />
@@ -755,6 +818,32 @@ const App: React.FC = () => {
               <p className="text-[10px] font-bold text-stone-400 uppercase">Harvested</p>
             </div>
           </div>
+          {/* Account indicator */}
+          {user ? (
+            <div className="flex items-center gap-2">
+              <div className="bg-green-50 border border-green-200 px-3 py-2 rounded-full flex items-center gap-2">
+                <span className="text-xs">☁️</span>
+                <span className="text-[10px] font-bold text-green-700 uppercase tracking-wider hidden sm:inline">{user.email?.split('@')[0]}</span>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="p-2 rounded-full text-stone-300 hover:text-red-500 transition-all"
+                title="Sign out"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
+          ) : skipAuth ? (
+            <button
+              onClick={() => { setSkipAuth(false); localStorage.removeItem('tomato_skip_auth'); }}
+              className="text-[10px] font-bold text-stone-300 hover:text-green-600 uppercase tracking-widest transition-colors"
+              title="Sign in to sync across devices"
+            >
+              ☁️ Sign in
+            </button>
+          ) : null}
         </div>
       </header>
 
