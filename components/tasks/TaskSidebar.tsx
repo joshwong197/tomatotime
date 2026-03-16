@@ -38,28 +38,23 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   onAddGround, onDeleteGround,
   onViewArchive,
 }) => {
-  const activeBeasts = beasts.filter(b => b.status === 'active' || b.status === 'done')
-    .sort((a, b) => {
-      // Done beasts at bottom of active section
-      if (a.status === 'done' && b.status !== 'done') return 1;
-      if (b.status === 'done' && a.status !== 'done') return -1;
-      return THREAT_ORDER[a.threat] - THREAT_ORDER[b.threat];
-    });
-  const onHoldBeasts = beasts.filter(b => b.status === 'on_hold')
-    .sort((a, b) => THREAT_ORDER[a.threat] - THREAT_ORDER[b.threat]);
-  const backlogBeasts = beasts.filter(b => b.status === 'backlog')
-    .sort((a, b) => THREAT_ORDER[a.threat] - THREAT_ORDER[b.threat]);
+  const STATUS_ORDER: Record<string, number> = { active: 0, backlog: 1, on_hold: 2, done: 3 };
 
-  // Group backlog by hunting grounds
-  const groupedBacklog = new Map<string | undefined, Beast[]>();
-  backlogBeasts.forEach(b => {
+  const sortBeasts = (list: Beast[]) =>
+    list.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || THREAT_ORDER[a.threat] - THREAT_ORDER[b.threat]);
+
+  // Group all beasts (not just backlog) by hunting grounds
+  const grouped = new Map<string | undefined, Beast[]>();
+  beasts.forEach(b => {
     const key = b.groundsId || undefined;
-    if (!groupedBacklog.has(key)) groupedBacklog.set(key, []);
-    groupedBacklog.get(key)!.push(b);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(b);
   });
 
-  const ungroupedBacklog = groupedBacklog.get(undefined) || [];
-  const groundGroups = Array.from(groupedBacklog.entries()).filter(([key]) => key !== undefined);
+  const ungroupedBeasts = sortBeasts(grouped.get(undefined) || []);
+  const groundGroups = Array.from(grouped.entries())
+    .filter(([key]) => key !== undefined)
+    .map(([key, list]) => [key, sortBeasts(list)] as [string | undefined, Beast[]]);
 
   const renderRow = (beast: Beast) => (
     <TaskRow
@@ -86,63 +81,35 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
 
       {/* Scrollable list */}
       <div className="flex-1 overflow-y-auto space-y-2 px-2 pb-4">
-        {/* Hunter's Workshop (active + done) */}
-        <TaskGroup
-          title="Hunter's Workshop"
-          icon="⚔️"
-          count={activeBeasts.filter(b => b.status === 'active').length}
-          maxCount={5}
-          tint="bg-red-900/10"
-          defaultExpanded={true}
-        >
-          {activeBeasts.length === 0 ? (
-            <p className="text-xs text-zinc-600 italic px-4 py-3">No beasts prepared. Add from your notes below.</p>
-          ) : (
-            activeBeasts.map(renderRow)
-          )}
-        </TaskGroup>
-
-        {/* Awaiting Insight (on_hold) */}
-        {onHoldBeasts.length > 0 && (
-          <TaskGroup
-            title="Awaiting Insight"
-            icon="👁"
-            count={onHoldBeasts.length}
-            tint="bg-purple-900/10"
-            defaultExpanded={true}
-          >
-            {onHoldBeasts.map(renderRow)}
-          </TaskGroup>
-        )}
-
         {/* Hunting Grounds (project groups) */}
         {groundGroups.map(([groundId, groupBeasts]) => {
           const ground = grounds.find(g => g.id === groundId);
+          const activeCount = groupBeasts.filter(b => b.status === 'active').length;
           return (
             <TaskGroup
               key={groundId}
               title={ground?.name || 'Unknown Grounds'}
               icon="⚑"
               count={groupBeasts.length}
-              tint="bg-amber-900/5"
-              defaultExpanded={false}
+              tint={activeCount > 0 ? 'bg-red-900/10' : 'bg-amber-900/5'}
+              defaultExpanded={true}
             >
               {groupBeasts.map(renderRow)}
             </TaskGroup>
           );
         })}
 
-        {/* Ungrouped backlog */}
+        {/* Ungrouped beasts — Hunter's Workshop */}
         <TaskGroup
-          title="Hunter's Notes"
-          icon="📜"
-          count={ungroupedBacklog.length}
-          defaultExpanded={groundGroups.length === 0}
+          title="Hunter's Workshop"
+          icon="⚔️"
+          count={ungroupedBeasts.length}
+          defaultExpanded={true}
         >
-          {ungroupedBacklog.length === 0 && groundGroups.length === 0 ? (
+          {ungroupedBeasts.length === 0 && groundGroups.length === 0 ? (
             <p className="text-xs text-zinc-600 italic px-4 py-3">No beasts recorded. Name your quarry above.</p>
           ) : (
-            ungroupedBacklog.map(renderRow)
+            ungroupedBeasts.map(renderRow)
           )}
         </TaskGroup>
       </div>
