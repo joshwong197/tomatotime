@@ -44,8 +44,9 @@ export interface Seed {
   completed: boolean;
   createdAt: number;
   priority: 'sun' | 'partial' | 'shade'; // sun = high, partial = medium, shade = low
-  status: 'active' | 'backlog'; // active = potting bench, backlog = packet
+  status: 'active' | 'backlog' | 'greenhouse'; // active = potting bench, backlog = packet, greenhouse = follow-up
   focusTime: number; // seconds of accumulated focus time
+  gardenBedId?: string; // optional project grouping
 }
 
 export interface ArchivedSeed {
@@ -55,6 +56,13 @@ export interface ArchivedSeed {
   archivedAt: number;
   archiveReason: 'completed' | 'deleted';
   focusTime: number;
+  gardenBedId?: string; // preserve project association
+}
+
+export interface GardenBed {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export interface PlantSprite {
