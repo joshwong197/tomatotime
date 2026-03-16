@@ -26,7 +26,6 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onContinueLocal }) => {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // Auth state change will be picked up by the listener in App.tsx
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -37,17 +36,17 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onContinueLocal }) => {
 
   if (confirmationSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fefce8] p-4">
-        <div className="tomato-card p-8 max-w-md w-full text-center space-y-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#0f0f1a] p-4">
+        <div className="hunt-card p-8 max-w-md w-full text-center space-y-4">
           <div className="text-5xl">📬</div>
-          <h2 className="text-2xl font-black text-stone-800">Check Your Garden Mail!</h2>
-          <p className="text-sm font-bold text-stone-500">
-            We've sent a confirmation link to <span className="text-stone-800">{email}</span>.
-            Click the link to activate your garden account.
+          <h2 className="text-2xl font-black text-zinc-100 font-gothic">Check Your Messenger</h2>
+          <p className="text-sm font-bold text-zinc-500">
+            A message has been sent to <span className="text-zinc-200">{email}</span>.
+            Follow the link to join the hunt.
           </p>
           <button
             onClick={() => { setConfirmationSent(false); setMode('signin'); }}
-            className="tomato-button-secondary py-3 px-6 font-black uppercase tracking-widest text-sm"
+            className="hunt-button-secondary py-3 px-6 font-black uppercase tracking-widest text-sm"
           >
             Back to Sign In
           </button>
@@ -57,43 +56,43 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onContinueLocal }) => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fefce8] p-4">
-      <div className="tomato-card p-8 max-w-md w-full space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-[#0f0f1a] p-4">
+      <div className="hunt-card p-8 max-w-md w-full space-y-6">
         <div className="text-center space-y-2">
-          <div className="text-5xl">🍅</div>
-          <h1 className="text-3xl font-black text-stone-800">Tomato Time</h1>
-          <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
-            {mode === 'signin' ? 'Welcome back, gardener' : 'Start your garden'}
+          <div className="text-5xl pulse-glow">⚔️</div>
+          <h1 className="text-3xl font-black text-zinc-100 font-gothic">Tomatotime</h1>
+          <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest">
+            {mode === 'signin' ? 'Welcome back, hunter' : 'Join the hunt'}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-1">Email</label>
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors"
-              placeholder="gardener@example.com"
+              className="hunt-input w-full px-4 py-3 text-sm font-bold placeholder:text-zinc-600"
+              placeholder="hunter@yharnam.net"
             />
           </div>
           <div>
-            <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-1">Password</label>
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 placeholder:text-stone-300 outline-none focus:border-green-400 transition-colors"
+              className="hunt-input w-full px-4 py-3 text-sm font-bold placeholder:text-zinc-600"
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs font-bold text-red-600">
+            <div className="bg-red-900/30 border border-red-800/50 rounded-xl p-3 text-xs font-bold text-red-400">
               {error}
             </div>
           )}
@@ -101,26 +100,26 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onContinueLocal }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full tomato-button py-4 font-black uppercase tracking-widest text-sm disabled:opacity-50"
+            className="w-full hunt-button py-4 font-black uppercase tracking-widest text-sm disabled:opacity-50"
           >
-            {loading ? 'Planting...' : mode === 'signin' ? 'Enter Garden' : 'Plant Account'}
+            {loading ? 'Preparing...' : mode === 'signin' ? 'Enter the Hunt' : 'Register Hunter'}
           </button>
         </form>
 
         <div className="text-center space-y-3">
           <button
             onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); }}
-            className="text-xs font-bold text-stone-400 hover:text-stone-600 transition-colors"
+            className="text-xs font-bold text-zinc-500 hover:text-zinc-300 transition-colors"
           >
-            {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+            {mode === 'signin' ? "New hunter? Create an account" : 'Already hunting? Sign in'}
           </button>
 
-          <div className="border-t border-stone-100 pt-3">
+          <div className="border-t border-zinc-800 pt-3">
             <button
               onClick={onContinueLocal}
-              className="text-[10px] font-bold text-stone-300 hover:text-stone-500 uppercase tracking-widest transition-colors"
+              className="text-[10px] font-bold text-zinc-600 hover:text-zinc-400 uppercase tracking-widest transition-colors"
             >
-              Continue without account (local only)
+              Hunt without an account (local only)
             </button>
           </div>
         </div>
