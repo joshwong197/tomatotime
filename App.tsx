@@ -249,7 +249,7 @@ const App: React.FC = () => {
 
         <footer className="mt-auto py-6 text-center">
           <p className="text-xs font-bold text-zinc-700 uppercase tracking-[0.2em]">
-            Forged in blood &bull; Tomatotime v4.0
+            Forged in blood &bull; HuntingTime v4.0
           </p>
         </footer>
       </div>

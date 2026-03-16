@@ -60,7 +60,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onContinueLocal }) => {
       <div className="hunt-card p-8 max-w-md w-full space-y-6">
         <div className="text-center space-y-2">
           <div className="text-5xl pulse-glow">⚔️</div>
-          <h1 className="text-3xl font-black text-zinc-100 font-gothic">Tomatotime</h1>
+          <h1 className="text-3xl font-black text-zinc-100 font-gothic">HuntingTime</h1>
           <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest">
             {mode === 'signin' ? 'Welcome back, hunter' : 'Join the hunt'}
           </p>

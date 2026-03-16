@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-4">
         <div className="text-5xl drop-shadow-sm pulse-glow select-none">⚔️</div>
         <div>
-          <h1 className="text-3xl font-black text-red-500 tracking-tight font-gothic">Tomatotime</h1>
+          <h1 className="text-3xl font-black text-red-500 tracking-tight font-gothic">HuntingTime</h1>
           <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest">A Hunter's Focus Tool</p>
         </div>
       </div>
