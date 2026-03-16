@@ -63,6 +63,8 @@ export interface GardenBed {
   id: string;
   name: string;
   createdAt: number;
+  x?: number; // percentage from left (0–100) for desktop workspace positioning
+  y?: number; // pixel offset from top for desktop workspace positioning
 }
 
 export interface PlantSprite {

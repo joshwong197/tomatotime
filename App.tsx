@@ -6,6 +6,7 @@ import { TimerDisplay } from './components/TimerDisplay';
 import { NotificationOverlay } from './components/NotificationOverlay';
 import { HistoryHub } from './components/HistoryHub';
 import { SeedChecklist } from './components/SeedChecklist';
+import { GardenWorkspace } from './components/GardenWorkspace';
 import { AboutModal } from './components/AboutModal';
 import { ArchivedSeedsModal } from './components/ArchivedSeedsModal';
 import { AuthGate } from './components/AuthGate';
@@ -294,7 +295,7 @@ const App: React.FC = () => {
           return prev;
         }
       }
-      return prev.map(s => s.id === id ? { ...s, status } : s);
+      return prev.map(s => s.id === id ? { ...s, status, completed: false } : s);
     });
   };
 
@@ -413,6 +414,21 @@ const App: React.FC = () => {
 
   const handleAssignGardenBed = (seedId: string, bedId: string | undefined) => {
     setSeeds(prev => prev.map(s => s.id === seedId ? { ...s, gardenBedId: bedId } : s));
+  };
+
+  const handleUpdateGardenBedPosition = (id: string, x: number, y: number) => {
+    setGardenBeds(prev => prev.map(b => b.id === id ? { ...b, x, y } : b));
+  };
+
+  // Complete a seed in-place within a garden bed (strikethrough, stays in bed)
+  const handleCompleteBedSeed = (id: string) => {
+    setSeeds(prev => prev.map(s => s.id === id ? { ...s, completed: true } : s));
+    if (selectedTaskId === id) setSelectedTaskId(null);
+  };
+
+  // Uncomplete a bed seed (toggle back)
+  const handleUncompleteBedSeed = (id: string) => {
+    setSeeds(prev => prev.map(s => s.id === id ? { ...s, completed: false } : s));
   };
 
   // --- Auth Handlers ---
@@ -1114,6 +1130,26 @@ const App: React.FC = () => {
             </div>
           )}
         </aside>
+      </div>
+
+      {/* Garden Workspace — full width below on desktop, hidden on mobile (stacked beds don't make sense) */}
+      <div className="hidden lg:block px-8 pb-8">
+        <GardenWorkspace
+          seeds={seeds}
+          gardenBeds={gardenBeds}
+          onMove={handleMoveSeed}
+          onDelete={handleDeleteSeed}
+          onEdit={handleEditSeed}
+          onAssignGardenBed={handleAssignGardenBed}
+          onAddGardenBed={handleAddGardenBed}
+          onEditGardenBed={handleEditGardenBed}
+          onDeleteGardenBed={handleDeleteGardenBed}
+          onUpdateGardenBedPosition={handleUpdateGardenBedPosition}
+          selectedTaskId={selectedTaskId}
+          onSelectTask={handleSelectTask}
+          onCompleteBedSeed={handleCompleteBedSeed}
+          onUncompleteBedSeed={handleUncompleteBedSeed}
+        />
       </div>
 
       {showNotification && currentSession && (
