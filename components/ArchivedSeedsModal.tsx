@@ -1,8 +1,9 @@
 import React from 'react';
-import { ArchivedSeed } from '../types';
+import { ArchivedSeed, GardenBed } from '../types';
 
 interface ArchivedSeedsModalProps {
   archivedSeeds: ArchivedSeed[];
+  gardenBeds: GardenBed[];
   onClose: () => void;
   onClearAll: () => void;
 }
@@ -27,16 +28,22 @@ const formatFocusTime = (seconds: number = 0): string => {
 };
 
 export const ArchivedSeedsModal: React.FC<ArchivedSeedsModalProps> = ({
-  archivedSeeds, onClose, onClearAll
+  archivedSeeds, gardenBeds, onClose, onClearAll
 }) => {
+  const getBedName = (bedId?: string) => {
+    if (!bedId) return null;
+    return gardenBeds.find(b => b.id === bedId)?.name || null;
+  };
+
   const exportToCSV = () => {
-    const headers = ['Task', 'Priority', 'Archived At', 'Reason', 'Focus Time (sec)'];
+    const headers = ['Task', 'Priority', 'Archived At', 'Reason', 'Focus Time (sec)', 'Garden Bed'];
     const rows = archivedSeeds.map(s => [
       s.text.replace(/,/g, ' '),
       s.priority,
       new Date(s.archivedAt).toLocaleString(),
       s.archiveReason,
-      s.focusTime || 0
+      s.focusTime || 0,
+      getBedName(s.gardenBedId) || ''
     ]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -86,6 +93,7 @@ export const ArchivedSeedsModal: React.FC<ArchivedSeedsModalProps> = ({
           ) : (
             archivedSeeds.map((seed, idx) => {
               const ft = formatFocusTime(seed.focusTime);
+              const bedName = getBedName(seed.gardenBedId);
               return (
                 <div
                   key={`${seed.id}-${seed.archivedAt}-${idx}`}
@@ -105,6 +113,12 @@ export const ArchivedSeedsModal: React.FC<ArchivedSeedsModalProps> = ({
                           <>
                             <span>•</span>
                             <span className="text-red-400">⏱ {ft} focused</span>
+                          </>
+                        )}
+                        {bedName && (
+                          <>
+                            <span>•</span>
+                            <span className="text-emerald-500">🌿 {bedName}</span>
                           </>
                         )}
                       </div>

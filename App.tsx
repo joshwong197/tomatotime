@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Session, SessionType, PomodoroSchedule, DailyStats, CompletedSession, Seed, ArchivedSeed, PlantSprite } from './types';
+import { Session, SessionType, PomodoroSchedule, DailyStats, CompletedSession, Seed, ArchivedSeed, PlantSprite, GardenBed } from './types';
 import { TimerDisplay } from './components/TimerDisplay';
 import { NotificationOverlay } from './components/NotificationOverlay';
 import { HistoryHub } from './components/HistoryHub';
@@ -128,6 +128,12 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Garden Beds State (Projects)
+  const [gardenBeds, setGardenBeds] = useState<GardenBed[]>(() => {
+    const saved = localStorage.getItem('tomato_garden_beds');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Analytics State
   const [dailyStats, setDailyStats] = useState<DailyStats>(() => {
     const saved = localStorage.getItem('tomato_stats');
@@ -181,6 +187,10 @@ const App: React.FC = () => {
   }, [plantSprites]);
 
   useEffect(() => {
+    localStorage.setItem('tomato_garden_beds', JSON.stringify(gardenBeds));
+  }, [gardenBeds]);
+
+  useEffect(() => {
     if (selectedTaskId) localStorage.setItem('tomato_selected_task', selectedTaskId);
     else localStorage.removeItem('tomato_selected_task');
   }, [selectedTaskId]);
@@ -220,15 +230,16 @@ const App: React.FC = () => {
   }, [ambience]);
 
   // --- Checklist Handlers ---
-  const handleAddSeed = (texts: string[], priority: 'sun' | 'partial' | 'shade' = 'partial') => {
+  const handleAddSeed = (texts: string[], priority: 'sun' | 'partial' | 'shade' = 'partial', gardenBedId?: string) => {
     const newSeeds: Seed[] = texts.map(text => ({
       id: Math.random().toString(36).substr(2, 9),
       text,
       completed: false,
       createdAt: Date.now(),
       priority,
-      status: 'backlog', // Default to backlog
-      focusTime: 0
+      status: 'backlog' as const,
+      focusTime: 0,
+      ...(gardenBedId ? { gardenBedId } : {})
     }));
     setSeeds(prev => [...newSeeds, ...prev]);
   };
@@ -251,18 +262,19 @@ const App: React.FC = () => {
     });
   };
 
-  const handleToggleSeed = (id: string) => {
+  // Harvest: archive immediately and add background plant
+  const handleHarvestSeed = (id: string) => {
     setSeeds(prev => {
       const seed = prev.find(s => s.id === id);
-      if (seed && !seed.completed) {
-        // Transitioning to completed: archive it and add a background plant
+      if (seed) {
         const archived: ArchivedSeed = {
           id: seed.id,
           text: seed.text,
           priority: seed.priority,
           archivedAt: Date.now(),
           archiveReason: 'completed',
-          focusTime: seed.focusTime || 0
+          focusTime: seed.focusTime || 0,
+          gardenBedId: seed.gardenBedId
         };
         setArchivedSeeds(ap => [archived, ...ap]);
         setPlantSprites(ps => {
@@ -271,8 +283,29 @@ const App: React.FC = () => {
         });
         if (selectedTaskId === id) setSelectedTaskId(null);
       }
-      return prev.map(s => s.id === id ? { ...s, completed: !s.completed } : s);
+      return prev.filter(s => s.id !== id);
     });
+  };
+
+  // Move to greenhouse for follow-up
+  const handleGreenhouseSeed = (id: string) => {
+    setSeeds(prev => prev.map(s => s.id === id ? { ...s, completed: true, status: 'greenhouse' as const } : s));
+    if (selectedTaskId === id) setSelectedTaskId(null);
+  };
+
+  // Legacy toggle: used by NotificationOverlay harvest button — defaults to harvest
+  const handleToggleSeed = (id: string) => {
+    handleHarvestSeed(id);
+  };
+
+  // Greenhouse → back to seed packet (replant)
+  const handleGreenhouseToBacklog = (id: string) => {
+    setSeeds(prev => prev.map(s => s.id === id ? { ...s, completed: false, status: 'backlog' as const } : s));
+  };
+
+  // Greenhouse → archive (final harvest)
+  const handleGreenhouseToArchive = (id: string) => {
+    handleHarvestSeed(id);
   };
 
   const handleDeleteSeed = (id: string) => {
@@ -285,7 +318,8 @@ const App: React.FC = () => {
           priority: seed.priority,
           archivedAt: Date.now(),
           archiveReason: 'deleted',
-          focusTime: seed.focusTime || 0
+          focusTime: seed.focusTime || 0,
+          gardenBedId: seed.gardenBedId
         };
         setArchivedSeeds(ap => [archived, ...ap]);
         if (selectedTaskId === id) setSelectedTaskId(null);
@@ -303,7 +337,8 @@ const App: React.FC = () => {
           priority: s.priority,
           archivedAt: Date.now(),
           archiveReason: 'deleted' as const,
-          focusTime: s.focusTime || 0
+          focusTime: s.focusTime || 0,
+          gardenBedId: s.gardenBedId
         }));
         setArchivedSeeds(ap => [...toArchive, ...ap]);
         return [];
@@ -318,6 +353,30 @@ const App: React.FC = () => {
 
   const handleSelectTask = (id: string | null) => {
     setSelectedTaskId(prev => prev === id ? null : id);
+  };
+
+  // --- Garden Bed Handlers ---
+  const handleAddGardenBed = (name: string) => {
+    const bed: GardenBed = {
+      id: Math.random().toString(36).substr(2, 9),
+      name,
+      createdAt: Date.now()
+    };
+    setGardenBeds(prev => [...prev, bed]);
+  };
+
+  const handleEditGardenBed = (id: string, name: string) => {
+    setGardenBeds(prev => prev.map(b => b.id === id ? { ...b, name } : b));
+  };
+
+  const handleDeleteGardenBed = (id: string) => {
+    setGardenBeds(prev => prev.filter(b => b.id !== id));
+    // Unassign seeds from deleted bed
+    setSeeds(prev => prev.map(s => s.gardenBedId === id ? { ...s, gardenBedId: undefined } : s));
+  };
+
+  const handleAssignGardenBed = (seedId: string, bedId: string | undefined) => {
+    setSeeds(prev => prev.map(s => s.id === seedId ? { ...s, gardenBedId: bedId } : s));
   };
 
   // --- Notification Logic ---
@@ -895,7 +954,10 @@ const App: React.FC = () => {
             seeds={seeds}
             onAdd={handleAddSeed}
             onEdit={handleEditSeed}
-            onToggle={handleToggleSeed}
+            onHarvest={handleHarvestSeed}
+            onGreenhouse={handleGreenhouseSeed}
+            onGreenhouseToBacklog={handleGreenhouseToBacklog}
+            onGreenhouseToArchive={handleGreenhouseToArchive}
             onDelete={handleDeleteSeed}
             onMove={handleMoveSeed}
             onClear={handleClearSeeds}
@@ -903,6 +965,11 @@ const App: React.FC = () => {
             onViewArchive={() => setShowArchive(true)}
             selectedTaskId={selectedTaskId}
             onSelectTask={handleSelectTask}
+            gardenBeds={gardenBeds}
+            onAddGardenBed={handleAddGardenBed}
+            onEditGardenBed={handleEditGardenBed}
+            onDeleteGardenBed={handleDeleteGardenBed}
+            onAssignGardenBed={handleAssignGardenBed}
           />
 
           {/* Conditional Stats/Basket - only show when active */}
@@ -981,6 +1048,7 @@ const App: React.FC = () => {
       {showArchive && (
         <ArchivedSeedsModal
           archivedSeeds={archivedSeeds}
+          gardenBeds={gardenBeds}
           onClose={() => setShowArchive(false)}
           onClearAll={handleClearArchive}
         />
