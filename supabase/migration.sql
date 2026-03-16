@@ -1,4 +1,4 @@
--- Tomato Time: Cloud sync schema
+-- HuntingTime: Cloud sync schema
 -- Single table approach: store all user data as a JSON blob per user.
 -- This mirrors the localStorage model exactly and avoids complex schema mapping.
 

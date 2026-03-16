@@ -10,9 +10,9 @@ export interface Session {
   type: SessionType;
   durationMinutes: number;
   label: string;
-  startTime?: number; // timestamp
-  endTime?: number; // timestamp
-  seedId?: string;
+  startTime?: number;
+  endTime?: number;
+  beastId?: string;
 }
 
 export interface PomodoroSchedule {
@@ -35,40 +35,37 @@ export interface CompletedSession {
   startTime: number;
   endTime: number;
   durationMinutes: number;
-  seedId?: string;
+  beastId?: string;
 }
 
-export interface Seed {
+export type BeastStatus = 'backlog' | 'active' | 'on_hold' | 'done';
+export type ThreatLevel = 'nightmare' | 'boss' | 'beast';
+
+export interface Beast {
   id: string;
   text: string;
-  completed: boolean;
+  status: BeastStatus;
+  threat: ThreatLevel;
   createdAt: number;
-  priority: 'sun' | 'partial' | 'shade'; // sun = high, partial = medium, shade = low
-  status: 'active' | 'backlog' | 'greenhouse'; // active = potting bench, backlog = packet, greenhouse = follow-up
-  focusTime: number; // seconds of accumulated focus time
-  gardenBedId?: string; // optional project grouping
+  huntTime: number; // seconds of accumulated focus time
+  groundsId?: string; // hunting ground (project) grouping
+  insightNote?: string; // reason when on_hold
+  slainAt?: number; // timestamp when marked done
 }
 
-export interface ArchivedSeed {
+export interface SlainBeast {
   id: string;
   text: string;
-  priority: 'sun' | 'partial' | 'shade';
+  threat: ThreatLevel;
   archivedAt: number;
-  archiveReason: 'completed' | 'deleted';
-  focusTime: number;
-  gardenBedId?: string; // preserve project association
+  fate: 'slain' | 'abandoned';
+  huntTime: number;
+  groundsId?: string;
 }
 
-export interface GardenBed {
+export interface HuntingGround {
   id: string;
   name: string;
   createdAt: number;
-  x?: number; // percentage from left (0–100) for desktop workspace positioning
-  y?: number; // pixel offset from top for desktop workspace positioning
-}
-
-export interface PlantSprite {
-  id: string;
-  x: number; // percentage from left (0–100)
-  y: number; // percentage from top (0–100)
+  color?: string;
 }

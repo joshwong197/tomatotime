@@ -1,12 +1,11 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Seed, ArchivedSeed, GardenBed, PlantSprite, DailyStats, CompletedSession } from '../types';
+import { Beast, SlainBeast, HuntingGround, DailyStats, CompletedSession } from '../types';
 
 interface SyncableState {
-  seeds: Seed[];
-  archivedSeeds: ArchivedSeed[];
-  gardenBeds: GardenBed[];
-  plantSprites: PlantSprite[];
+  beasts: Beast[];
+  slainBeasts: SlainBeast[];
+  huntingGrounds: HuntingGround[];
   dailyStats: DailyStats;
   history: CompletedSession[];
 }
@@ -17,12 +16,6 @@ interface UseSupabaseSyncOptions {
   onRemoteData: (data: SyncableState) => void;
 }
 
-/**
- * Syncs app state to Supabase when a user is logged in.
- * - On login: pulls remote data and merges with local (remote wins for conflicts).
- * - On state changes: debounced upsert to Supabase.
- * - localStorage continues to work as the offline/immediate cache.
- */
 export function useSupabaseSync({ userId, state, onRemoteData }: UseSupabaseSyncOptions) {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPulled = useRef(false);
@@ -44,7 +37,6 @@ export function useSupabaseSync({ userId, state, onRemoteData }: UseSupabaseSync
           .single();
 
         if (error && error.code === 'PGRST116') {
-          // No row exists yet — first sync, push local data up
           await pushToRemote(userId, state);
           hasPulled.current = true;
           return;
@@ -57,12 +49,10 @@ export function useSupabaseSync({ userId, state, onRemoteData }: UseSupabaseSync
         }
 
         if (data) {
-          // Remote data exists — use it (remote wins)
           onRemoteData({
-            seeds: data.seeds || [],
-            archivedSeeds: data.archived_seeds || [],
-            gardenBeds: data.garden_beds || [],
-            plantSprites: data.plant_sprites || [],
+            beasts: data.seeds || [],
+            slainBeasts: data.archived_seeds || [],
+            huntingGrounds: data.garden_beds || [],
             dailyStats: data.daily_stats || state.dailyStats,
             history: data.history || [],
           });
@@ -76,7 +66,7 @@ export function useSupabaseSync({ userId, state, onRemoteData }: UseSupabaseSync
     };
 
     pullRemote();
-  }, [userId]); // Only run on login/logout
+  }, [userId]);
 
   // Debounced push on state changes
   useEffect(() => {
@@ -88,14 +78,14 @@ export function useSupabaseSync({ userId, state, onRemoteData }: UseSupabaseSync
 
     debounceTimer.current = setTimeout(() => {
       pushToRemote(userId, state);
-    }, 2000); // 2s debounce
+    }, 2000);
 
     return () => {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [userId, state.seeds, state.archivedSeeds, state.gardenBeds, state.plantSprites, state.dailyStats, state.history]);
+  }, [userId, state.beasts, state.slainBeasts, state.huntingGrounds, state.dailyStats, state.history]);
 
   return { isSyncing: isSyncing.current };
 }
@@ -106,10 +96,10 @@ async function pushToRemote(userId: string, state: SyncableState) {
       .from('user_data')
       .upsert({
         user_id: userId,
-        seeds: state.seeds,
-        archived_seeds: state.archivedSeeds,
-        garden_beds: state.gardenBeds,
-        plant_sprites: state.plantSprites,
+        seeds: state.beasts,
+        archived_seeds: state.slainBeasts,
+        garden_beds: state.huntingGrounds,
+        plant_sprites: [],
         daily_stats: state.dailyStats,
         history: state.history,
         updated_at: new Date().toISOString(),
