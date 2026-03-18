@@ -29,13 +29,14 @@ interface TaskRowProps {
   onDeactivate?: (id: string) => void;
   onSlay?: (id: string) => void;
   onClaimEchoes?: (id: string) => void;
+  onRevive?: (id: string) => void;
   onAwaitInsight?: (id: string, note?: string) => void;
   onResumeHunt?: (id: string) => void;
 }
 
 export const TaskRow: React.FC<TaskRowProps> = ({
   beast, isSelected, grounds, onSelect, onEdit, onDelete,
-  onActivate, onDeactivate, onSlay, onClaimEchoes, onAwaitInsight, onResumeHunt,
+  onActivate, onDeactivate, onSlay, onClaimEchoes, onRevive, onAwaitInsight, onResumeHunt,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(beast.text);
@@ -127,13 +128,22 @@ export const TaskRow: React.FC<TaskRowProps> = ({
           </button>
         )}
         {isDone && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onClaimEchoes?.(beast.id); }}
-            className="w-6 h-6 rounded-full bg-red-900/40 border border-red-700 flex items-center justify-center hover:bg-red-800/60 transition-all"
-            title="Claim Blood Echoes"
-          >
-            <span className="text-xs">🩸</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onRevive?.(beast.id); }}
+              className="w-6 h-6 rounded-full border-2 border-zinc-600 hover:border-amber-500 hover:bg-amber-900/20 flex items-center justify-center transition-all"
+              title="Revive — continue hunting"
+            >
+              <span className="text-[10px]">↩</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onClaimEchoes?.(beast.id); }}
+              className="w-6 h-6 rounded-full bg-red-900/40 border border-red-700 flex items-center justify-center hover:bg-red-800/60 transition-all"
+              title="Claim Blood Echoes"
+            >
+              <span className="text-xs">🩸</span>
+            </button>
+          </div>
         )}
         {isOnHold && (
           <button

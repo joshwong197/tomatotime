@@ -182,6 +182,7 @@ const App: React.FC = () => {
               onDeactivateBeast={beasts.deactivateBeast}
               onSlayBeast={beasts.slayBeast}
               onClaimEchoes={beasts.claimEchoes}
+              onReviveBeast={beasts.reviveBeast}
               onAwaitInsight={beasts.awaitInsight}
               onResumeHunt={beasts.resumeHunt}
               onAbandonBeast={beasts.abandonBeast}

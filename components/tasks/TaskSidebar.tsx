@@ -17,6 +17,7 @@ interface TaskSidebarProps {
   onDeactivateBeast: (id: string) => void;
   onSlayBeast: (id: string) => void;
   onClaimEchoes: (id: string) => void;
+  onReviveBeast: (id: string) => void;
   onAwaitInsight: (id: string, note?: string) => void;
   onResumeHunt: (id: string) => void;
   onAbandonBeast: (id: string) => void;
@@ -33,7 +34,7 @@ const THREAT_ORDER: Record<ThreatLevel, number> = { nightmare: 0, boss: 1, beast
 export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   beasts, grounds, selectedBeastId, archivedCount,
   onAddBeasts, onEditBeast, onSelectBeast,
-  onActivateBeast, onDeactivateBeast, onSlayBeast, onClaimEchoes,
+  onActivateBeast, onDeactivateBeast, onSlayBeast, onClaimEchoes, onReviveBeast,
   onAwaitInsight, onResumeHunt, onAbandonBeast, onClearAll,
   onAddGround, onDeleteGround,
   onViewArchive,
@@ -69,6 +70,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
       onDeactivate={onDeactivateBeast}
       onSlay={onSlayBeast}
       onClaimEchoes={onClaimEchoes}
+      onRevive={onReviveBeast}
       onAwaitInsight={onAwaitInsight}
       onResumeHunt={onResumeHunt}
     />
