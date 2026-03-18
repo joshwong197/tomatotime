@@ -7,6 +7,7 @@ import { useHuntingGrounds } from './hooks/useHuntingGrounds';
 import { useTimer } from './hooks/useTimer';
 import { useDailyStats } from './hooks/useDailyStats';
 import { useSupabaseSync } from './hooks/useSupabaseSync';
+import { useTheme } from './hooks/useTheme';
 import { Header } from './components/layout/Header';
 import { MobileTimerBar } from './components/layout/MobileTimerBar';
 import { SessionType } from './types';
@@ -23,6 +24,7 @@ import { AuthGate } from './components/AuthGate';
 runMigration();
 
 const App: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const auth = useAuth();
   const beasts = useBeasts();
   const grounds = useHuntingGrounds();
@@ -112,6 +114,8 @@ const App: React.FC = () => {
           user={auth.user}
           skipAuth={auth.skipAuth}
           notificationPermission={timer.notificationPermission}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           onRequestNotifications={timer.requestNotificationPermission}
           onShowHistory={() => setShowHistory(true)}
           onShowAbout={() => setShowAbout(true)}

@@ -1,12 +1,15 @@
 import React from 'react';
 import type { User } from '@supabase/supabase-js';
 import { DailyStats } from '../../types';
+import { Theme } from '../../hooks/useTheme';
 
 interface HeaderProps {
   dailyStats: DailyStats;
   user: User | null;
   skipAuth: boolean;
   notificationPermission: NotificationPermission;
+  theme: Theme;
+  onToggleTheme: () => void;
   onRequestNotifications: () => void;
   onShowHistory: () => void;
   onShowAbout: () => void;
@@ -16,8 +19,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   dailyStats, user, skipAuth,
-  notificationPermission, onRequestNotifications,
-  onShowHistory, onShowAbout,
+  notificationPermission, theme, onToggleTheme,
+  onRequestNotifications, onShowHistory, onShowAbout,
   onSignOut, onSignIn,
 }) => {
   return (
@@ -44,6 +47,21 @@ export const Header: React.FC<HeaderProps> = ({
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
+          </button>
+          <button
+            onClick={onToggleTheme}
+            className="p-2 rounded-full text-zinc-500 hover:text-amber-400 transition-all"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
           </button>
           <button onClick={onShowAbout} className="p-2 rounded-full text-zinc-500 hover:text-purple-400 transition-all" title="Hunter's Guide">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

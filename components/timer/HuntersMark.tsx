@@ -65,7 +65,7 @@ export const HuntersMark: React.FC<HuntersMarkProps> = ({ seconds, totalSeconds,
 
         {/* Hunter's Mark SVG - simplified rune shape */}
         <svg
-          className="absolute w-[120px] h-[120px] md:w-[160px] md:h-[160px] opacity-10"
+          className="absolute w-[120px] h-[120px] md:w-[160px] md:h-[160px] opacity-25"
           viewBox="0 0 100 100"
           fill="none"
           stroke={isFocus ? '#dc143c' : '#6b7280'}
