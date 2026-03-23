@@ -159,7 +159,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
 
       {/* Text + metadata */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-bold truncate ${isDone ? 'line-through text-zinc-600' : 'text-zinc-200'}`}>
+        <p className={`text-sm font-bold ${isDone ? 'line-through text-zinc-600' : 'text-zinc-200'}`}>
           {beast.text}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
