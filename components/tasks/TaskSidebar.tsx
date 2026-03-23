@@ -80,7 +80,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   );
 
   return (
-    <div className="hunt-card overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+    <div className="hunt-card overflow-hidden flex flex-col">
       {/* Input */}
       <TaskInput grounds={grounds} onAdd={onAddBeasts} />
 
