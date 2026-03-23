@@ -10,10 +10,52 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-body: #0f0f1a;
+            --text-body: #e4e4e7;
+            --bg-card: #1a1a2e;
+            --border-card: #4a1c1c;
+            --shadow-card: rgba(139, 0, 0, 0.15);
+            --bg-button: #8b0000;
+            --bg-button-hover: #a00000;
+            --shadow-button: #4a0000;
+            --bg-button-secondary: #1e3a2e;
+            --text-button-secondary: #a7f3d0;
+            --shadow-button-secondary: #0f2418;
+            --bg-button-secondary-hover: #254a3a;
+            --bg-input: #16213e;
+            --border-input: #374151;
+            --bg-scrollbar-track: #1a1a2e;
+            --bg-scrollbar-thumb: #4a1c1c;
+            --bg-scrollbar-thumb-hover: #6b2020;
+            --fog-from: rgba(139, 0, 0, 0.05);
+            --fog-to: rgba(88, 28, 135, 0.05);
+        }
+        html.light {
+            --bg-body: #f5f0eb;
+            --text-body: #1c1917;
+            --bg-card: #ffffff;
+            --border-card: #d4a574;
+            --shadow-card: rgba(180, 120, 60, 0.15);
+            --bg-button: #a52a2a;
+            --bg-button-hover: #b83232;
+            --shadow-button: #6b1a1a;
+            --bg-button-secondary: #d4edda;
+            --text-button-secondary: #155724;
+            --shadow-button-secondary: #a3cfb0;
+            --bg-button-secondary-hover: #c3e6cb;
+            --bg-input: #faf8f5;
+            --border-input: #c9b99a;
+            --bg-scrollbar-track: #ede8e1;
+            --bg-scrollbar-thumb: #c9a96e;
+            --bg-scrollbar-thumb-hover: #b8944f;
+            --fog-from: rgba(180, 120, 60, 0.05);
+            --fog-to: rgba(139, 92, 246, 0.05);
+        }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0f0f1a;
-            color: #e4e4e7;
+            background-color: var(--bg-body);
+            color: var(--text-body);
             margin: 0;
             overflow-x: hidden;
         }
@@ -21,65 +63,91 @@
             font-family: 'Cinzel', serif;
         }
         .hunt-card {
-            background: #1a1a2e;
-            border: 2px solid #4a1c1c;
+            background: var(--bg-card);
+            border: 2px solid var(--border-card);
             border-radius: 1rem;
-            box-shadow: 0 4px 20px rgba(139, 0, 0, 0.15);
+            box-shadow: 0 4px 20px var(--shadow-card);
         }
         .hunt-button {
-            background: #8b0000;
+            background: var(--bg-button);
             color: #e4e4e7;
             border-radius: 9999px;
-            box-shadow: 0 4px 0 0 #4a0000;
+            box-shadow: 0 4px 0 0 var(--shadow-button);
             transition: all 0.2s;
         }
         .hunt-button:hover {
-            background: #a00000;
-            box-shadow: 0 4px 0 0 #4a0000, 0 0 15px rgba(139, 0, 0, 0.4);
+            background: var(--bg-button-hover);
+            box-shadow: 0 4px 0 0 var(--shadow-button), 0 0 15px rgba(139, 0, 0, 0.4);
         }
         .hunt-button:active {
             transform: translateY(4px);
-            box-shadow: 0 0 0 0 #4a0000;
+            box-shadow: 0 0 0 0 var(--shadow-button);
         }
         .hunt-button-secondary {
-            background: #1e3a2e;
-            color: #a7f3d0;
+            background: var(--bg-button-secondary);
+            color: var(--text-button-secondary);
             border-radius: 9999px;
-            box-shadow: 0 4px 0 0 #0f2418;
+            box-shadow: 0 4px 0 0 var(--shadow-button-secondary);
             transition: all 0.2s;
         }
         .hunt-button-secondary:hover {
-            background: #254a3a;
-            box-shadow: 0 4px 0 0 #0f2418, 0 0 15px rgba(30, 58, 46, 0.4);
+            background: var(--bg-button-secondary-hover);
+            box-shadow: 0 4px 0 0 var(--shadow-button-secondary), 0 0 15px rgba(30, 58, 46, 0.4);
         }
         .hunt-button-secondary:active {
             transform: translateY(4px);
-            box-shadow: 0 0 0 0 #0f2418;
+            box-shadow: 0 0 0 0 var(--shadow-button-secondary);
         }
         .hunt-input {
-            background: #16213e;
-            border: 2px solid #374151;
+            background: var(--bg-input);
+            border: 2px solid var(--border-input);
             border-radius: 0.75rem;
-            color: #e4e4e7;
+            color: var(--text-body);
         }
         .hunt-input:focus {
             outline: none;
-            border-color: #8b0000;
+            border-color: var(--bg-button);
             box-shadow: 0 0 10px rgba(139, 0, 0, 0.2);
         }
         ::-webkit-scrollbar {
             width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #1a1a2e;
+            background: var(--bg-scrollbar-track);
         }
         ::-webkit-scrollbar-thumb {
-            background: #4a1c1c;
+            background: var(--bg-scrollbar-thumb);
             border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #6b2020;
+            background: var(--bg-scrollbar-thumb-hover);
         }
+        /* Light mode Tailwind overrides */
+        html.light .bg-\[\#0f0f1a\] { background-color: var(--bg-body) !important; }
+        html.light .bg-zinc-900\/50,
+        html.light .bg-zinc-900\/30 { background-color: rgba(0,0,0,0.05) !important; }
+        html.light .bg-zinc-800\/50 { background-color: rgba(0,0,0,0.06) !important; }
+        html.light .bg-zinc-800 { background-color: #e7e5e4 !important; }
+        html.light .text-zinc-200 { color: #1c1917 !important; }
+        html.light .text-zinc-300 { color: #292524 !important; }
+        html.light .text-zinc-400 { color: #44403c !important; }
+        html.light .text-zinc-500 { color: #57534e !important; }
+        html.light .text-zinc-600 { color: #78716c !important; }
+        html.light .text-zinc-700 { color: #a8a29e !important; }
+        html.light .border-zinc-700\/30,
+        html.light .border-zinc-700 { border-color: #d6d3d1 !important; }
+        html.light .border-zinc-800 { border-color: #e7e5e4 !important; }
+        html.light .border-zinc-800\/30 { border-color: rgba(0,0,0,0.08) !important; }
+        html.light .border-zinc-600 { border-color: #d6d3d1 !important; }
+        html.light .bg-red-900\/20,
+        html.light .bg-red-900\/30,
+        html.light .bg-red-900\/10 { background-color: rgba(185, 28, 28, 0.08) !important; }
+        html.light .bg-red-900\/40 { background-color: rgba(185, 28, 28, 0.12) !important; }
+        html.light .border-red-800\/30,
+        html.light .border-red-800\/50 { border-color: rgba(185, 28, 28, 0.2) !important; }
+        html.light .bg-purple-900\/10 { background-color: rgba(107, 33, 168, 0.08) !important; }
+        html.light .border-purple-800\/20 { border-color: rgba(107, 33, 168, 0.15) !important; }
+        html.light .bg-amber-900\/5 { background-color: rgba(180, 83, 9, 0.06) !important; }
         @keyframes pulse-glow {
             0%, 100% { filter: drop-shadow(0 0 8px rgba(139, 0, 0, 0.4)); }
             50% { filter: drop-shadow(0 0 20px rgba(139, 0, 0, 0.7)); }

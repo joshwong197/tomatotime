@@ -8,6 +8,7 @@ import { useTimer } from './hooks/useTimer';
 import { useDailyStats } from './hooks/useDailyStats';
 import { useSupabaseSync } from './hooks/useSupabaseSync';
 import { Header } from './components/layout/Header';
+import { useTheme } from './hooks/useTheme';
 import { MobileTimerBar } from './components/layout/MobileTimerBar';
 import { SessionType } from './types';
 import { TimerArea } from './components/timer/TimerArea';
@@ -23,6 +24,7 @@ import { AuthGate } from './components/AuthGate';
 runMigration();
 
 const App: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const auth = useAuth();
   const beasts = useBeasts();
   const grounds = useHuntingGrounds();
@@ -102,7 +104,7 @@ const App: React.FC = () => {
     <div className="relative min-h-screen bg-[#0f0f1a]">
       {/* Subtle fog background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-red-900/5 via-transparent to-purple-900/5 fog-drift" />
+        <div className="absolute top-0 left-0 w-full h-full fog-drift" style={{ background: `linear-gradient(to bottom, var(--fog-from), transparent, var(--fog-to))` }} />
       </div>
 
       <div className="relative z-10 min-h-screen px-6 py-8 md:px-12 md:py-12 max-w-7xl mx-auto flex flex-col gap-8">
@@ -112,6 +114,8 @@ const App: React.FC = () => {
           user={auth.user}
           skipAuth={auth.skipAuth}
           notificationPermission={timer.notificationPermission}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           onRequestNotifications={timer.requestNotificationPermission}
           onShowHistory={() => setShowHistory(true)}
           onShowAbout={() => setShowAbout(true)}
