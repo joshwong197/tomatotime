@@ -1,12 +1,11 @@
 
 import React, { useState } from 'react';
 import { runMigration } from './services/migrationService';
-import { useAuth } from './hooks/useAuth';
 import { useBeasts } from './hooks/useBeasts';
 import { useHuntingGrounds } from './hooks/useHuntingGrounds';
 import { useTimer } from './hooks/useTimer';
 import { useDailyStats } from './hooks/useDailyStats';
-import { useSupabaseSync } from './hooks/useSupabaseSync';
+import { useTheme } from './hooks/useTheme';
 import { Header } from './components/layout/Header';
 import { MobileTimerBar } from './components/layout/MobileTimerBar';
 import { SessionType } from './types';
@@ -17,13 +16,12 @@ import { TaskSidebar } from './components/tasks/TaskSidebar';
 import { HuntJournal } from './components/modals/HuntJournal';
 import { BloodEchoesModal } from './components/modals/BloodEchoesModal';
 import { AboutModal } from './components/AboutModal';
-import { AuthGate } from './components/AuthGate';
 
 // Run migration once on load
 runMigration();
 
 const App: React.FC = () => {
-  const auth = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const beasts = useBeasts();
   const grounds = useHuntingGrounds();
   const stats = useDailyStats();
@@ -34,44 +32,10 @@ const App: React.FC = () => {
     onSessionComplete: stats.recordSession,
   });
 
-  // Supabase sync
-  useSupabaseSync({
-    userId: auth.user?.id ?? null,
-    state: {
-      beasts: beasts.beasts,
-      slainBeasts: beasts.slainBeasts,
-      huntingGrounds: grounds.grounds,
-      dailyStats: stats.dailyStats,
-      history: stats.history,
-    },
-    onRemoteData: (data) => {
-      beasts.loadRemote(data.beasts, data.slainBeasts);
-      grounds.loadRemote(data.huntingGrounds);
-      stats.loadRemote(data.dailyStats, data.history);
-    },
-  });
-
   // Modal state
   const [showHistory, setShowHistory] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
-
-  // Loading state
-  if (auth.authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f0f1a]">
-        <div className="text-center space-y-4">
-          <div className="text-6xl pulse-glow">⚔️</div>
-          <p className="text-sm font-bold text-zinc-600 uppercase tracking-widest">Preparing the hunt...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Auth gate
-  if (!auth.user && !auth.skipAuth) {
-    return <AuthGate onContinueLocal={auth.continueLocal} />;
-  }
 
   // Notification permission modal
   if (timer.notificationPermission === 'default') {
@@ -109,14 +73,12 @@ const App: React.FC = () => {
         {/* Header */}
         <Header
           dailyStats={stats.dailyStats}
-          user={auth.user}
-          skipAuth={auth.skipAuth}
           notificationPermission={timer.notificationPermission}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           onRequestNotifications={timer.requestNotificationPermission}
           onShowHistory={() => setShowHistory(true)}
           onShowAbout={() => setShowAbout(true)}
-          onSignOut={auth.signOut}
-          onSignIn={auth.signIn}
         />
 
         {/* Mobile Timer Bar */}
@@ -178,6 +140,7 @@ const App: React.FC = () => {
               onDeactivateBeast={beasts.deactivateBeast}
               onSlayBeast={beasts.slayBeast}
               onClaimEchoes={beasts.claimEchoes}
+              onReviveBeast={beasts.reviveBeast}
               onAwaitInsight={beasts.awaitInsight}
               onResumeHunt={beasts.resumeHunt}
               onAbandonBeast={beasts.abandonBeast}

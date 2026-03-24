@@ -103,6 +103,78 @@
         .fog-drift {
             animation: fog-drift 8s ease-in-out infinite;
         }
+
+        /* ===== LIGHT THEME ===== */
+        [data-theme="light"] body {
+            background-color: #f5f0ea;
+            color: #2d2b3d;
+        }
+        [data-theme="light"] .hunt-card {
+            background: #ffffff;
+            border-color: #c9a87c;
+            box-shadow: 0 4px 20px rgba(139, 80, 0, 0.1);
+        }
+        [data-theme="light"] .hunt-input {
+            background: #f9f5f0;
+            border-color: #d1c4b5;
+            color: #2d2b3d;
+        }
+        [data-theme="light"] .hunt-input:focus {
+            border-color: #a02020;
+            box-shadow: 0 0 10px rgba(160, 32, 32, 0.15);
+        }
+        [data-theme="light"] .hunt-button-secondary {
+            background: #e8f5ec;
+            color: #1e5e3a;
+            box-shadow: 0 4px 0 0 #b8d8c0;
+        }
+        [data-theme="light"] .hunt-button-secondary:hover {
+            background: #d4eddc;
+            box-shadow: 0 4px 0 0 #b8d8c0, 0 0 15px rgba(30, 94, 58, 0.15);
+        }
+        [data-theme="light"] ::-webkit-scrollbar-track {
+            background: #f0ece6;
+        }
+        [data-theme="light"] ::-webkit-scrollbar-thumb {
+            background: #c9a87c;
+        }
+        [data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+            background: #a08060;
+        }
+        /* Tailwind overrides for light mode */
+        [data-theme="light"] .bg-\[\#0f0f1a\] { background-color: #f5f0ea !important; }
+        [data-theme="light"] .bg-zinc-900\/50 { background-color: rgba(245, 240, 234, 0.7) !important; }
+        [data-theme="light"] .bg-zinc-800 { background-color: #f0ece6 !important; }
+        [data-theme="light"] .bg-zinc-800\/50 { background-color: rgba(240, 236, 230, 0.5) !important; }
+        [data-theme="light"] .bg-zinc-900 { background-color: #e8e2da !important; }
+        [data-theme="light"] .bg-zinc-700 { background-color: #e0d8ce !important; }
+        [data-theme="light"] .text-zinc-100 { color: #2d2b3d !important; }
+        [data-theme="light"] .text-zinc-200 { color: #3d3b4d !important; }
+        [data-theme="light"] .text-zinc-300 { color: #4d4b5d !important; }
+        [data-theme="light"] .text-zinc-400 { color: #6b6880 !important; }
+        [data-theme="light"] .text-zinc-500 { color: #8a8698 !important; }
+        [data-theme="light"] .text-zinc-600 { color: #a09cae !important; }
+        [data-theme="light"] .text-zinc-700 { color: #b8b4c4 !important; }
+        [data-theme="light"] .border-zinc-700\/30 { border-color: rgba(201, 168, 124, 0.4) !important; }
+        [data-theme="light"] .border-zinc-700\/50 { border-color: rgba(201, 168, 124, 0.5) !important; }
+        [data-theme="light"] .border-zinc-700 { border-color: #d1c4b5 !important; }
+        [data-theme="light"] .border-zinc-800 { border-color: #e0d8ce !important; }
+        [data-theme="light"] .from-red-900\/5 { --tw-gradient-from: rgba(127, 29, 29, 0.03) !important; }
+        [data-theme="light"] .to-purple-900\/5 { --tw-gradient-to: rgba(88, 28, 135, 0.03) !important; }
+        [data-theme="light"] .bg-red-900\/10 { background-color: rgba(180, 40, 40, 0.08) !important; }
+        [data-theme="light"] .bg-red-900\/30 { background-color: rgba(180, 40, 40, 0.15) !important; }
+        [data-theme="light"] .bg-purple-900\/10 { background-color: rgba(88, 28, 135, 0.08) !important; }
+        [data-theme="light"] .bg-purple-900\/30 { background-color: rgba(88, 28, 135, 0.1) !important; }
+        [data-theme="light"] .bg-amber-900\/5 { background-color: rgba(180, 120, 20, 0.06) !important; }
+        [data-theme="light"] .bg-emerald-900\/30 { background-color: rgba(6, 95, 70, 0.1) !important; }
+        [data-theme="light"] .bg-blue-900\/30 { background-color: rgba(30, 58, 138, 0.1) !important; }
+        [data-theme="light"] .pulse-glow {
+            animation: pulse-glow-light 3s ease-in-out infinite;
+        }
+        @keyframes pulse-glow-light {
+            0%, 100% { filter: drop-shadow(0 0 6px rgba(160, 32, 32, 0.25)); }
+            50% { filter: drop-shadow(0 0 14px rgba(160, 32, 32, 0.45)); }
+        }
     </style>
 <script type="importmap">
 {

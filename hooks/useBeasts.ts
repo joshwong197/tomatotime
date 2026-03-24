@@ -98,6 +98,13 @@ export function useBeasts() {
     });
   }, [setBeasts]);
 
+  // done → active (revive)
+  const reviveBeast = useCallback((id: string) => {
+    setBeasts(prev => prev.map(b =>
+      b.id === id ? { ...b, status: 'active' as const, slainAt: undefined } : b
+    ));
+  }, [setBeasts]);
+
   // any → archived (abandon)
   const abandonBeast = useCallback((id: string) => {
     setBeasts(prev => {
@@ -171,6 +178,7 @@ export function useBeasts() {
     deactivateBeast,
     slayBeast,
     claimEchoes,
+    reviveBeast,
     awaitInsight,
     resumeHunt,
     abandonBeast,

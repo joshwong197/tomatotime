@@ -10,13 +10,16 @@ const THREAT_ICONS: Record<ThreatLevel, string> = {
 interface TaskInputProps {
   grounds: HuntingGround[];
   onAdd: (texts: string[], threat: ThreatLevel, groundsId?: string) => void;
+  onAddGround: (name: string) => void;
 }
 
-export const TaskInput: React.FC<TaskInputProps> = ({ grounds, onAdd }) => {
+export const TaskInput: React.FC<TaskInputProps> = ({ grounds, onAdd, onAddGround }) => {
   const [text, setText] = useState('');
   const [batchMode, setBatchMode] = useState(false);
   const [threat, setThreat] = useState<ThreatLevel>('boss');
   const [selectedGround, setSelectedGround] = useState<string>('');
+  const [showNewGround, setShowNewGround] = useState(false);
+  const [newGroundName, setNewGroundName] = useState('');
 
   const handleSubmit = () => {
     const trimmed = text.trim();
@@ -97,7 +100,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({ grounds, onAdd }) => {
         </div>
 
         {/* Hunting ground selector */}
-        {grounds.length > 0 && (
+        <div className="flex items-center gap-1">
           <select
             value={selectedGround}
             onChange={(e) => setSelectedGround(e.target.value)}
@@ -108,6 +111,46 @@ export const TaskInput: React.FC<TaskInputProps> = ({ grounds, onAdd }) => {
               <option key={g.id} value={g.id}>{g.name}</option>
             ))}
           </select>
+          <button
+            onClick={() => setShowNewGround(!showNewGround)}
+            className={`text-xs px-2 py-1.5 rounded-lg font-bold transition-all ${
+              showNewGround ? 'bg-zinc-700 text-zinc-300' : 'text-zinc-600 hover:text-zinc-400'
+            }`}
+            title="Add new hunting ground"
+          >
+            + Ground
+          </button>
+        </div>
+        {showNewGround && (
+          <div className="flex items-center gap-1 w-full">
+            <input
+              className="hunt-input flex-1 px-2 py-1.5 text-xs rounded-lg"
+              placeholder="New ground name..."
+              value={newGroundName}
+              onChange={(e) => setNewGroundName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newGroundName.trim()) {
+                  onAddGround(newGroundName.trim());
+                  setNewGroundName('');
+                  setShowNewGround(false);
+                }
+              }}
+              autoFocus
+            />
+            <button
+              onClick={() => {
+                if (newGroundName.trim()) {
+                  onAddGround(newGroundName.trim());
+                  setNewGroundName('');
+                  setShowNewGround(false);
+                }
+              }}
+              disabled={!newGroundName.trim()}
+              className="hunt-button px-2 py-1.5 text-xs font-bold disabled:opacity-30"
+            >
+              Add
+            </button>
+          </div>
         )}
 
         {/* Batch toggle */}
