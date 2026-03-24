@@ -1,27 +1,21 @@
 import React from 'react';
-import type { User } from '@supabase/supabase-js';
 import { DailyStats } from '../../types';
 import { Theme } from '../../hooks/useTheme';
 
 interface HeaderProps {
   dailyStats: DailyStats;
-  user: User | null;
-  skipAuth: boolean;
   notificationPermission: NotificationPermission;
   theme: Theme;
   onToggleTheme: () => void;
   onRequestNotifications: () => void;
   onShowHistory: () => void;
   onShowAbout: () => void;
-  onSignOut: () => void;
-  onSignIn: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  dailyStats, user, skipAuth,
+  dailyStats,
   notificationPermission, theme, onToggleTheme,
   onRequestNotifications, onShowHistory, onShowAbout,
-  onSignOut, onSignIn,
 }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-center gap-6">
@@ -76,32 +70,6 @@ export const Header: React.FC<HeaderProps> = ({
             <p className="text-[10px] font-bold text-zinc-600 uppercase">Slain</p>
           </div>
         </div>
-        {/* Auth */}
-        {user ? (
-          <div className="flex items-center gap-2">
-            <div className="bg-zinc-900/50 border border-zinc-700/30 px-3 py-2 rounded-full flex items-center gap-2">
-              <span className="text-xs">☁️</span>
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider hidden sm:inline">{user.email?.split('@')[0]}</span>
-            </div>
-            <button
-              onClick={onSignOut}
-              className="p-2 rounded-full text-zinc-500 hover:text-red-400 transition-all"
-              title="Sign out"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
-          </div>
-        ) : skipAuth ? (
-          <button
-            onClick={onSignIn}
-            className="text-[10px] font-bold text-zinc-600 hover:text-emerald-400 uppercase tracking-widest transition-colors"
-            title="Sign in to sync across devices"
-          >
-            ☁️ Sign in
-          </button>
-        ) : null}
       </div>
     </header>
   );
